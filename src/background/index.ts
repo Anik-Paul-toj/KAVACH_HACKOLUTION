@@ -117,6 +117,14 @@ class BackgroundService {
         if (details.type === 'main_frame') return {};
         const url = this.safeParseURL(details.url);
         const initiatorUrl = details.initiator ? this.safeParseURL(details.initiator) : null;
+        
+        // Check if the request domain is blocked
+        if (url && this.isTrackerBlocked(url.hostname)) {
+          console.log(`Blocking request to: ${url.hostname}`);
+          return { cancel: true }; // Actually block the request
+        }
+        
+        // Track third-party requests for analysis
         if (url && initiatorUrl && url.hostname !== initiatorUrl.hostname) {
           this.trackThirdPartyRequest(initiatorUrl.hostname, url.hostname, details.type);
         }
@@ -561,9 +569,42 @@ class BackgroundService {
       if (!blockedDomains.includes(domain)) {
         blockedDomains.push(domain);
         await chrome.storage.local.set({ blockedDomains });
+        
+        // Create dynamic blocking rule for this domain
+        await this.createDynamicBlockingRule(domain);
       }
     } catch (error) {
       // Silently handle storage errors
+    }
+  }
+
+  private async createDynamicBlockingRule(domain: string): Promise<void> {
+    try {
+      const ruleId = Date.now() + Math.random(); // Generate unique ID
+      const newRule = {
+        id: ruleId,
+        priority: 1,
+        action: { type: 'block' as chrome.declarativeNetRequest.RuleActionType },
+        condition: {
+          urlFilter: `*://*.${domain}/*`,
+          resourceTypes: [
+            'script' as chrome.declarativeNetRequest.ResourceType,
+            'xmlhttprequest' as chrome.declarativeNetRequest.ResourceType,
+            'image' as chrome.declarativeNetRequest.ResourceType,
+            'media' as chrome.declarativeNetRequest.ResourceType,
+            'font' as chrome.declarativeNetRequest.ResourceType,
+            'websocket' as chrome.declarativeNetRequest.ResourceType
+          ]
+        }
+      };
+
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        addRules: [newRule]
+      });
+      
+      console.log(`Created dynamic blocking rule for: ${domain}`);
+    } catch (error) {
+      console.error(`Failed to create blocking rule for ${domain}:`, error);
     }
   }
 
@@ -705,8 +746,32 @@ class BackgroundService {
       let blockedDomains = storage.blockedDomains || [];
       blockedDomains = blockedDomains.filter((d: string) => d !== domain);
       await chrome.storage.local.set({ blockedDomains });
+      
+      // Remove dynamic blocking rule for this domain
+      await this.removeDynamicBlockingRule(domain);
     } catch (error) {
       // Silently handle storage errors
+    }
+  }
+
+  private async removeDynamicBlockingRule(domain: string): Promise<void> {
+    try {
+      // Get all dynamic rules
+      const rules = await chrome.declarativeNetRequest.getDynamicRules();
+      
+      // Find rules that match this domain
+      const rulesToRemove = rules.filter(rule => 
+        rule.condition.urlFilter && rule.condition.urlFilter.includes(domain)
+      );
+      
+      if (rulesToRemove.length > 0) {
+        await chrome.declarativeNetRequest.updateDynamicRules({
+          removeRuleIds: rulesToRemove.map(rule => rule.id)
+        });
+        console.log(`Removed ${rulesToRemove.length} dynamic blocking rules for: ${domain}`);
+      }
+    } catch (error) {
+      console.error(`Failed to remove blocking rules for ${domain}:`, error);
     }
   }
 }
