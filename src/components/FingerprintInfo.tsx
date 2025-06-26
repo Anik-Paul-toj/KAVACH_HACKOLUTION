@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import ErrorIcon from '@mui/icons-material/Error';
+import PersonIcon from '@mui/icons-material/Person';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 interface FingerprintData {
   visitorId: string;
@@ -7,17 +10,13 @@ interface FingerprintData {
     score: number;
   };
   requestId?: string;
-  incognito?: boolean;
-  ip?: string;
-  ipLocation?: {
-    country?: string;
-    city?: string;
+  lastSeenAt?: {
+    global?: string;
+    subscription?: string;
   };
-  browserDetails?: {
-    browserName?: string;
-    browserVersion?: string;
-    os?: string;
-    osVersion?: string;
+  firstSeenAt?: {
+    global?: string;
+    subscription?: string;
   };
   bot?: {
     result: string;
@@ -143,6 +142,39 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = ({ apiKey }) => {
                 )}
               </div>
             </div>
+
+            {fpData && fpData.bot && (
+              <div className="fingerprint-metric">
+                <div className="metric-label">Visitor Type</div>
+                <div className="metric-value" style={{ 
+                  color: fpData.bot.result === 'notDetected' ? '#16a34a' : '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  {fpData.bot.result === 'notDetected' ? (
+                    <>
+                      <PersonIcon sx={{ fontSize: 16 }} />
+                      <span>Human</span>
+                    </>
+                  ) : (
+                    <>
+                      <SmartToyIcon sx={{ fontSize: 16 }} />
+                      <span>Bot</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {fpData && fpData.lastSeenAt && fpData.lastSeenAt.global && (
+              <div className="fingerprint-metric">
+                <div className="metric-label">Last Seen</div>
+                <div className="metric-value" style={{ fontSize: '12px', color: '#64748b' }}>
+                  {new Date(fpData.lastSeenAt.global).toLocaleDateString()}
+                </div>
+              </div>
+            )}
           </div>
 
           {fpData && !loading && (
@@ -156,61 +188,48 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = ({ apiKey }) => {
               
               {showDetails && (
                 <div className="details-content">
-                  {fpData.incognito !== undefined && (
+                  {fpData.lastSeenAt && (
                     <div className="detail-item">
-                      <span className="detail-label">Incognito Mode:</span>
+                      <span className="detail-label">Last Seen:</span>
                       <span className="detail-value">
-                        {fpData.incognito ? '🕵️ Yes' : '👤 No'}
+                        {fpData.lastSeenAt.global ? 
+                          new Date(fpData.lastSeenAt.global).toLocaleString() : 
+                          'Unknown'}
                       </span>
                     </div>
                   )}
                   
-                  {fpData.ip && (
+                  {fpData.firstSeenAt && (
                     <div className="detail-item">
-                      <span className="detail-label">IP Address:</span>
-                      <span className="detail-value">{fpData.ip}</span>
-                    </div>
-                  )}
-                  
-                  {fpData.ipLocation && (
-                    <div className="detail-item">
-                      <span className="detail-label">Location:</span>
+                      <span className="detail-label">First Seen:</span>
                       <span className="detail-value">
-                        {fpData.ipLocation.city && fpData.ipLocation.country 
-                          ? `${fpData.ipLocation.city}, ${fpData.ipLocation.country}`
-                          : fpData.ipLocation.country || 'Unknown'
-                        }
+                        {fpData.firstSeenAt.global ? 
+                          new Date(fpData.firstSeenAt.global).toLocaleString() : 
+                          'Unknown'}
                       </span>
                     </div>
-                  )}
-                  
-                  {fpData.browserDetails && (
-                    <>
-                      {fpData.browserDetails.browserName && (
-                        <div className="detail-item">
-                          <span className="detail-label">Browser:</span>
-                          <span className="detail-value">
-                            {fpData.browserDetails.browserName} {fpData.browserDetails.browserVersion || ''}
-                          </span>
-                        </div>
-                      )}
-                      
-                      {fpData.browserDetails.os && (
-                        <div className="detail-item">
-                          <span className="detail-label">Operating System:</span>
-                          <span className="detail-value">
-                            {fpData.browserDetails.os} {fpData.browserDetails.osVersion || ''}
-                          </span>
-                        </div>
-                      )}
-                    </>
                   )}
                   
                   {fpData.bot && (
                     <div className="detail-item">
                       <span className="detail-label">Bot Detection:</span>
-                      <span className="detail-value">
-                        {fpData.bot.result === 'notDetected' ? '✅ Human' : '🤖 Bot Detected'}
+                      <span className="detail-value" style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '6px',
+                        color: fpData.bot.result === 'notDetected' ? '#16a34a' : '#dc2626'
+                      }}>
+                        {fpData.bot.result === 'notDetected' ? (
+                          <>
+                            <CheckCircleIcon sx={{ fontSize: 14 }} />
+                            <span>Human</span>
+                          </>
+                        ) : (
+                          <>
+                            <SmartToyIcon sx={{ fontSize: 14 }} />
+                            <span>Bot Detected</span>
+                          </>
+                        )}
                       </span>
                     </div>
                   )}

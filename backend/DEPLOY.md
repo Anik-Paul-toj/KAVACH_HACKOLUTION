@@ -39,7 +39,7 @@ In the Render dashboard, add these environment variables:
 
 | Key | Value | Description |
 |-----|-------|-------------|
-| `GEMINI_API_KEY` | `AIzaSyAOnPkSGxDTW79dZYZM98eOIQEbyNGs894` | Your Google Gemini API key |
+| `GEMINI_API_KEY` | `AIzaSyCS1_3cdyCSUlsSvZ-UlRpmp6w2ZwTb7m0` | Your Google Gemini API key |
 | `NODE_ENV` | `production` | Production environment |
 | `PORT` | (auto-assigned by Render) | Server port |
 | `ALLOWED_ORIGINS` | `chrome-extension://,moz-extension://` | CORS origins |
