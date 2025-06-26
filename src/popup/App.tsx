@@ -6,6 +6,7 @@ import TrackerList from '../components/TrackerList';
 import PrivacyAnalysis from '../components/PrivacyAnalysis';
 import DataFlowVisualization from '../components/DataFlowVisualization';
 import ActionButtons from '../components/ActionButtons';
+import FingerprintInfo from '../components/FingerprintInfo';
 
 const FINGERPRINT_API_KEY = 'N7imdc4hXvZILIkFSLAj';
 
@@ -968,14 +969,10 @@ const App: React.FC = () => {
   const [blockingEnabled, setBlockingEnabled] = useState(true);
   const [analyzingPolicy, setAnalyzingPolicy] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
-  const [fpLoading, setFpLoading] = useState(false);
-  const [fpError, setFpError] = useState<string | null>(null);
-  const [fpData, setFpData] = useState<any>(null);
 
   useEffect(() => {
     loadCurrentSiteData();
     loadSettings();
-    loadFingerprint();
   }, []);
 
   const loadCurrentSiteData = async () => {
@@ -1278,48 +1275,9 @@ const App: React.FC = () => {
     }
   };
 
-  const loadFingerprint = async () => {
-    setFpLoading(true);
-    setFpError(null);
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab?.id) {
-        throw new Error("Could not find active tab.");
-      }
-
-      const response = await chrome.runtime.sendMessage({
-        action: 'runFingerprint',
-        apiKey: FINGERPRINT_API_KEY,
-        tabId: tab.id,
-      });
-
-      if (response.success) {
-        setFpData(response.data);
-      } else {
-        throw new Error(response.error || 'Unknown fingerprinting error');
-      }
-    } catch (e: any) {
-      setFpError(e.message || String(e));
-      setFpData(null);
-    }
-    setFpLoading(false);
-  };
-
   if (loading) {
     return (
       <div className="app">
-        {/* FingerprintJS Pro Section */}
-        <div style={{ background: '#fef3c7', border: '1px solid #f59e42', borderRadius: 8, padding: 12, marginBottom: 16 }}>
-          <h3 style={{ margin: 0, fontSize: 16, marginBottom: 8 }}>🔍 FingerprintJS Pro Info</h3>
-          <button onClick={loadFingerprint} style={{ margin: '8px 0' }}>Reload Fingerprint Data</button>
-          <div>VisitorId: {fpLoading ? 'Loading...' : fpData?.visitorId || 'N/A'}</div>
-          <div>Uniqueness: {fpData?.confidence?.score ? `${(fpData.confidence.score * 100).toFixed(1)}%` : 'N/A'}</div>
-          <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Full visitor data:</div>
-          <pre style={{ maxHeight: 120, overflow: 'auto', background: '#fff7ed', borderRadius: 4, padding: 8, fontSize: 11 }}>
-            {fpError ? fpError : JSON.stringify(fpData, null, 2)}
-          </pre>
-        </div>
-        
         <div className="loading">
           <div className="loading-logo">
             <img src="logo.png" alt="Kavach Logo" className="logo-image" />
@@ -1333,18 +1291,6 @@ const App: React.FC = () => {
 
   return (
     <div className="app">
-      {/* FingerprintJS Pro Section */}
-      <div style={{ background: '#fef3c7', border: '1px solid #f59e42', borderRadius: 8, padding: 12, marginBottom: 16 }}>
-        <h3 style={{ margin: 0, fontSize: 16, marginBottom: 8 }}>🔍 FingerprintJS Pro Info</h3>
-        <button onClick={loadFingerprint} style={{ margin: '8px 0' }}>Reload Fingerprint Data</button>
-        <div>VisitorId: {fpLoading ? 'Loading...' : fpData?.visitorId || 'N/A'}</div>
-        <div>Uniqueness: {fpData?.confidence?.score ? `${(fpData.confidence.score * 100).toFixed(1)}%` : 'N/A'}</div>
-        <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Full visitor data:</div>
-        <pre style={{ maxHeight: 120, overflow: 'auto', background: '#fff7ed', borderRadius: 4, padding: 8, fontSize: 11 }}>
-          {fpError ? fpError : JSON.stringify(fpData, null, 2)}
-        </pre>
-      </div>
-
       <header className="header">
         <div className="logo">
           <img src="logo.png" alt="Kavach Logo" className="logo-image" />
@@ -1386,6 +1332,8 @@ const App: React.FC = () => {
               </div>
               <DataFlowVisualization dataFlow={siteData.dataFlow} />
             </div>
+
+            <FingerprintInfo apiKey={FINGERPRINT_API_KEY} />
 
             <ActionButtons 
               onOptOut={handleOptOut}

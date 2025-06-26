@@ -1,5 +1,11 @@
 import React from 'react';
 import { PrivacyPolicyAnalysis } from '../utils/types';
+import ShieldIcon from '@mui/icons-material/Shield';
+import WarningIcon from '@mui/icons-material/Warning';
+import ErrorIcon from '@mui/icons-material/Error';
+import HelpIcon from '@mui/icons-material/Help';
+import LinkIcon from '@mui/icons-material/Link';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 interface PrivacyAnalysisProps {
   analysis: PrivacyPolicyAnalysis;
@@ -30,11 +36,12 @@ const PrivacyAnalysis: React.FC<PrivacyAnalysisProps> = ({ analysis }) => {
   };
 
   const getSafetyIcon = (safety: string) => {
+    const iconStyle = { fontSize: 24 };
     switch (safety) {
-      case 'SAFE': return '🛡️';
-      case 'RISKY': return '⚠️';
-      case 'UNSAFE': return '🚨';
-      default: return '❓';
+      case 'SAFE': return <ShieldIcon sx={iconStyle} />;
+      case 'RISKY': return <WarningIcon sx={iconStyle} />;
+      case 'UNSAFE': return <ErrorIcon sx={iconStyle} />;
+      default: return <HelpIcon sx={iconStyle} />;
     }
   };
 
@@ -266,7 +273,8 @@ const PrivacyAnalysis: React.FC<PrivacyAnalysisProps> = ({ analysis }) => {
             gap: '8px',
             color: '#7c2d12'
           }}>
-            🔗 Data Sharing Partners
+            <LinkIcon sx={{ fontSize: 18, color: '#7c2d12' }} />
+            Data Sharing Partners
           </strong>
           <div style={{ 
             display: 'grid', 
@@ -302,11 +310,14 @@ const PrivacyAnalysis: React.FC<PrivacyAnalysisProps> = ({ analysis }) => {
           <strong style={{ 
             fontSize: '14px', 
             color: '#166534', 
-            display: 'block', 
+            display: 'flex', 
+            alignItems: 'center',
+            gap: '8px',
             marginBottom: '12px',
             fontWeight: '700'
           }}>
-            ✅ Positive Privacy Practices
+            <CheckCircleIcon sx={{ fontSize: 18, color: '#166534' }} />
+            Positive Privacy Practices
           </strong>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {analysis.positiveFeatures.map((feature: string, index: number) => (
@@ -321,12 +332,12 @@ const PrivacyAnalysis: React.FC<PrivacyAnalysisProps> = ({ analysis }) => {
                 fontSize: '13px',
                 lineHeight: '1.4'
               }}>
-                <span style={{ 
+                <CheckCircleIcon sx={{ 
                   color: '#059669', 
-                  fontSize: '16px', 
+                  fontSize: 16, 
                   flexShrink: 0,
                   marginTop: '2px'
-                }}>✓</span>
+                }} />
                 <span style={{ color: '#166534', fontWeight: '500' }}>{feature}</span>
               </div>
             ))}
