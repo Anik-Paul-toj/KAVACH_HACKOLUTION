@@ -9,9 +9,29 @@ interface AnalyzeRequest {
   policyUrl?: string;
 }
 
+interface PolicyMetadata {
+  url: string;
+  title: string;
+  lastModified?: string;
+  contentLength: number;
+  analyzedAt: string;
+}
+
+interface AnalyzeResponseData {
+  summary: string;
+  safety: 'SAFE' | 'RISKY' | 'UNSAFE';
+  score: number;
+  risks: string[];
+  positiveFeatures: string[];
+  dataSharing: string[];
+  industryType: string;
+  analysisDepth: string;
+  policyMetadata: PolicyMetadata;
+}
+
 interface AnalyzeResponse {
   success: boolean;
-  data?: any;
+  data?: AnalyzeResponseData;
   error?: string;
   policyUrl?: string;
 }
@@ -23,6 +43,33 @@ try {
   analyzer = new GeminiPrivacyAnalyzer();
 } catch (error) {
   console.error('Failed to initialize Gemini analyzer:', error);
+}
+
+// Helper function to detect industry type from URL
+function detectIndustryType(url: string): string {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    
+    if (hostname.includes('bank') || hostname.includes('credit') || hostname.includes('finance')) {
+      return 'Financial';
+    } else if (hostname.includes('health') || hostname.includes('medical') || hostname.includes('clinic')) {
+      return 'Healthcare';
+    } else if (hostname.includes('shop') || hostname.includes('store') || hostname.includes('commerce')) {
+      return 'E-commerce';
+    } else if (hostname.includes('social') || hostname.includes('chat') || hostname.includes('media')) {
+      return 'Social Media';
+    } else if (hostname.includes('edu') || hostname.includes('university') || hostname.includes('school')) {
+      return 'Education';
+    } else if (hostname.includes('gov') || hostname.includes('government')) {
+      return 'Government';
+    } else if (hostname.includes('news') || hostname.includes('blog') || hostname.includes('journal')) {
+      return 'Media';
+    } else {
+      return 'Technology';
+    }
+  } catch {
+    return 'Unknown';
+  }
 }
 
 /**
@@ -101,6 +148,12 @@ router.post('/analyze', async (req: Request, res: Response): Promise<void> => {
       data: {
         summary: analysis.summary,
         safety: analysis.safety,
+        score: analysis.score,
+        risks: analysis.risks || [],
+        positiveFeatures: analysis.positiveFeatures || [],
+        dataSharing: [], // Will be extracted from analysis in future iterations
+        industryType: detectIndustryType(url),
+        analysisDepth: 'AI Analysis',
         policyMetadata: {
           url: finalPolicyUrl,
           title: scrapedContent.title,
