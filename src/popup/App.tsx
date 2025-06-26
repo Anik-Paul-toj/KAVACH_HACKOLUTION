@@ -8,7 +8,7 @@ import DataFlowVisualization from '../components/DataFlowVisualization';
 import ActionButtons from '../components/ActionButtons';
 import FingerprintInfo from '../components/FingerprintInfo';
 
-const FINGERPRINT_API_KEY = 'N7imdc4hXvZILIkFSLAj';
+
 
 // Comprehensive opt-out cleanup function that runs in the page context
 function comprehensiveOptOutCleanup(domain: string) {
@@ -1333,7 +1333,7 @@ const App: React.FC = () => {
               <DataFlowVisualization dataFlow={siteData.dataFlow} />
             </div>
 
-            <FingerprintInfo apiKey={FINGERPRINT_API_KEY} />
+            <FingerprintInfo />
 
             <ActionButtons 
               onOptOut={handleOptOut}

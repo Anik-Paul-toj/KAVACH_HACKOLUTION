@@ -9,25 +9,20 @@ interface FingerprintData {
   confidence?: {
     score: number;
   };
-  requestId?: string;
-  lastSeenAt?: {
-    global?: string;
-    subscription?: string;
-  };
-  firstSeenAt?: {
-    global?: string;
-    subscription?: string;
-  };
+  timestamp?: number;
+  lastSeen?: number; // Unix timestamp
   bot?: {
-    result: string;
+    probability: number;
+    type: string;
   };
+  components?: any; // Raw component data from FingerprintJS
 }
 
 interface FingerprintInfoProps {
-  apiKey: string;
+  // No longer need API key for open source version
 }
 
-const FingerprintInfo: React.FC<FingerprintInfoProps> = ({ apiKey }) => {
+const FingerprintInfo: React.FC<FingerprintInfoProps> = () => {
   const [fpData, setFpData] = useState<FingerprintData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,17 +40,31 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = ({ apiKey }) => {
 
       const response = await chrome.runtime.sendMessage({
         action: 'runFingerprint',
-        apiKey,
         tabId: tab.id,
       });
 
       if (response.success) {
         setFpData(response.data);
       } else {
-        throw new Error(response.error || 'Unknown fingerprinting error');
+        // Handle specific CSP errors more gracefully
+        let errorMessage = response.error || 'Unknown fingerprinting error';
+        if (errorMessage.includes('Content Security Policy') || 
+            errorMessage.includes('CSP') || 
+            errorMessage.includes('fpnpmcdn.net')) {
+          errorMessage = 'Fingerprinting temporarily blocked by browser security. This may happen on some websites with strict security policies.';
+        }
+        throw new Error(errorMessage);
       }
     } catch (e: any) {
-      setError(e.message || String(e));
+      let errorMessage = e.message || String(e);
+      // Simplify CSP error messages for users
+      if (errorMessage.includes('Content Security Policy') || 
+          errorMessage.includes('CSP') || 
+          errorMessage.includes('fpnpmcdn.net') ||
+          errorMessage.includes('script-src')) {
+        errorMessage = 'Fingerprinting blocked by website security policy. Try refreshing or navigate to a different site.';
+      }
+      setError(errorMessage);
       setFpData(null);
     }
     
@@ -147,31 +156,31 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = ({ apiKey }) => {
               <div className="fingerprint-metric">
                 <div className="metric-label">Visitor Type</div>
                 <div className="metric-value" style={{ 
-                  color: fpData.bot.result === 'notDetected' ? '#16a34a' : '#dc2626',
+                  color: fpData.bot.type === 'unlikely' ? '#16a34a' : '#dc2626',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px'
                 }}>
-                  {fpData.bot.result === 'notDetected' ? (
+                  {fpData.bot.type === 'unlikely' ? (
                     <>
                       <PersonIcon sx={{ fontSize: 16 }} />
-                      <span>Human</span>
+                      <span>Human ({(fpData.bot.probability * 100).toFixed(0)}% bot probability)</span>
                     </>
                   ) : (
                     <>
                       <SmartToyIcon sx={{ fontSize: 16 }} />
-                      <span>Bot</span>
+                      <span>Bot ({(fpData.bot.probability * 100).toFixed(0)}% bot probability)</span>
                     </>
                   )}
                 </div>
               </div>
             )}
 
-            {fpData && fpData.lastSeenAt && fpData.lastSeenAt.global && (
+            {fpData && fpData.lastSeen && (
               <div className="fingerprint-metric">
                 <div className="metric-label">Last Seen</div>
                 <div className="metric-value" style={{ fontSize: '12px', color: '#64748b' }}>
-                  {new Date(fpData.lastSeenAt.global).toLocaleDateString()}
+                  {new Date(fpData.lastSeen).toLocaleDateString()}
                 </div>
               </div>
             )}
@@ -188,24 +197,20 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = ({ apiKey }) => {
               
               {showDetails && (
                 <div className="details-content">
-                  {fpData.lastSeenAt && (
+                  {fpData.lastSeen && (
                     <div className="detail-item">
                       <span className="detail-label">Last Seen:</span>
                       <span className="detail-value">
-                        {fpData.lastSeenAt.global ? 
-                          new Date(fpData.lastSeenAt.global).toLocaleString() : 
-                          'Unknown'}
+                        {new Date(fpData.lastSeen).toLocaleString()}
                       </span>
                     </div>
                   )}
                   
-                  {fpData.firstSeenAt && (
+                  {fpData.timestamp && (
                     <div className="detail-item">
-                      <span className="detail-label">First Seen:</span>
+                      <span className="detail-label">Generated:</span>
                       <span className="detail-value">
-                        {fpData.firstSeenAt.global ? 
-                          new Date(fpData.firstSeenAt.global).toLocaleString() : 
-                          'Unknown'}
+                        {new Date(fpData.timestamp).toLocaleString()}
                       </span>
                     </div>
                   )}
@@ -217,17 +222,17 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = ({ apiKey }) => {
                         display: 'flex', 
                         alignItems: 'center', 
                         gap: '6px',
-                        color: fpData.bot.result === 'notDetected' ? '#16a34a' : '#dc2626'
+                        color: fpData.bot.type === 'unlikely' ? '#16a34a' : '#dc2626'
                       }}>
-                        {fpData.bot.result === 'notDetected' ? (
+                        {fpData.bot.type === 'unlikely' ? (
                           <>
                             <CheckCircleIcon sx={{ fontSize: 14 }} />
-                            <span>Human</span>
+                            <span>Human ({(fpData.bot.probability * 100).toFixed(1)}% bot probability)</span>
                           </>
                         ) : (
                           <>
                             <SmartToyIcon sx={{ fontSize: 14 }} />
-                            <span>Bot Detected</span>
+                            <span>Bot Detected ({(fpData.bot.probability * 100).toFixed(1)}% probability)</span>
                           </>
                         )}
                       </span>

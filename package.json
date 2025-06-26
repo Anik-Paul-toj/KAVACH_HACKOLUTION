@@ -14,8 +14,7 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@fingerprintjs/fingerprintjs-pro": "^3.11.10",
-    "@fingerprintjs/fingerprintjs-pro-react": "^2.7.0",
+    "@fingerprintjs/fingerprintjs": "^4.6.2",
     "@mui/icons-material": "^7.1.2",
     "@mui/material": "^7.1.2",
     "@types/chrome": "^0.0.326",

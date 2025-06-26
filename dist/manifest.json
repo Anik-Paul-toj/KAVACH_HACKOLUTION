@@ -56,6 +56,6 @@
     ]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.fpjs.io https://*.api.fpjs.io https://kavach-hackolution.onrender.com https://*.onrender.com http://localhost:3000"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://kavach-hackolution.onrender.com https://*.onrender.com http://localhost:3000"
   }
 }
