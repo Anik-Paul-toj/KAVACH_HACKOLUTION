@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { SiteData } from '../utils/types';
 import { OptOutManager } from '../utils/privacy';
@@ -950,11 +951,10 @@ function comprehensiveOptOutCleanup(domain: string) {
     
     console.log('✅ Comprehensive cleanup completed for:', domain);
     
-    // Optionally reload the page to ensure all changes take effect
+    // Automatically reload the page to ensure all changes take effect
     setTimeout(() => {
-      if (confirm('Kavach has completed comprehensive privacy reset. Reload page to ensure all tracking is permanently disabled?')) {
-        window.location.reload();
-      }
+      console.log('🔄 Auto-reloading page to ensure all tracking is permanently disabled');
+      window.location.reload();
     }, 3000);
     
   } catch (error) {
@@ -1072,16 +1072,7 @@ const App: React.FC = () => {
         appcache: true
       });
 
-      // Step 6: Try to revoke optional permissions
-      try {
-        await chrome.permissions.remove({
-          origins: [origin]
-        });
-      } catch (e) {
-        console.log('Could not revoke permissions (this is normal):', e);
-      }
-
-      // Step 7: Block future tracking for this domain
+      // Step 6: Block future tracking for this domain
       await chrome.storage.local.set({
         [`optedOut_${domain}`]: {
           timestamp: Date.now(),
