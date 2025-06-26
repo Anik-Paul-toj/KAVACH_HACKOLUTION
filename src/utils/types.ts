@@ -9,6 +9,7 @@ export interface PrivacyPolicyAnalysis {
   score: number;
   risks: string[];
   summary: string;
+  safety?: 'SAFE' | 'RISKY' | 'UNSAFE';
   dataSharing: string[];
   industryType?: string;
   positiveFeatures?: string[];

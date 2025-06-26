@@ -1222,22 +1222,64 @@ const App: React.FC = () => {
     }
   };
 
+  const testDirectAPI = async () => {
+    console.log('🧪 [Popup] Testing direct API call...');
+    try {
+      const response = await fetch('https://kavach-hackolution.onrender.com/api/privacy-policy/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: currentUrl }),
+      });
+
+      console.log('📥 [Popup] Direct API response status:', response.status);
+      const result = await response.json();
+      console.log('📥 [Popup] Direct API result:', result);
+    } catch (error) {
+      console.error('❌ [Popup] Direct API test failed:', error);
+    }
+  };
+
   const handleAnalyzePolicy = async () => {
     if (!siteData || analyzingPolicy) return;
 
+    console.log('🎯 [Popup] Starting privacy policy analysis for:', currentUrl);
     setAnalyzingPolicy(true);
+    
     try {
+      console.log('📞 [Popup] Sending message to background script...');
       const response = await chrome.runtime.sendMessage({
         action: 'analyzePrivacyPolicy',
         url: currentUrl
       });
 
-      setSiteData({
-        ...siteData,
-        privacyAnalysis: response
-      });
+      console.log('📥 [Popup] Received response from background:', response);
+
+      if (response && !response.error) {
+        const updatedSiteData = {
+          ...siteData,
+          privacyAnalysis: response
+        };
+        
+        console.log('💾 [Popup] Updating site data with analysis:', updatedSiteData);
+        setSiteData(updatedSiteData);
+        console.log('✅ [Popup] Privacy analysis completed successfully!');
+      } else {
+        console.error('❌ [Popup] Analysis failed:', response?.error || 'Unknown error');
+        // Still set the response so user can see the error
+        setSiteData({
+          ...siteData,
+          privacyAnalysis: response || { 
+            error: 'Analysis failed',
+            summary: 'Unable to analyze privacy policy',
+            safety: 'RISKY',
+            score: 30
+          }
+        });
+      }
     } catch (error) {
-      console.error('Failed to analyze privacy policy:', error);
+      console.error('❌ [Popup] Failed to analyze privacy policy:', error);
       // Show user-friendly error
       setSiteData({
         ...siteData,
@@ -1385,6 +1427,9 @@ const App: React.FC = () => {
             <div className="debug-section">
               <button onClick={handleDebugInfo} className="debug-button">
                 🐛 Debug Info
+              </button>
+              <button onClick={testDirectAPI} className="debug-button" style={{ marginLeft: '10px' }}>
+                🧪 Test API
               </button>
               {debugInfo && (
                 <div className="debug-info">

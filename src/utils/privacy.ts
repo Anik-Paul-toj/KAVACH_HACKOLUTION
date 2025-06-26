@@ -29,24 +29,33 @@ export class PrivacyPolicyAnalyzer {
 
   static async analyzePolicy(url: string): Promise<any> {
     try {
-      console.log('Analyzing privacy policy for:', url);
+      console.log('🚀 [Frontend] Starting privacy policy analysis for:', url);
+      console.log('🌐 [Frontend] API endpoint:', `${this.API_BASE_URL}/privacy-policy/analyze`);
+      
+      const requestBody = { url };
+      console.log('📤 [Frontend] Request body:', JSON.stringify(requestBody, null, 2));
       
       const response = await fetch(`${this.API_BASE_URL}/privacy-policy/analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify(requestBody),
         // Add timeout for Chrome extension
         signal: AbortSignal.timeout(30000) // 30 second timeout
       });
 
+      console.log('📥 [Frontend] Response status:', response.status, response.statusText);
+      console.log('📥 [Frontend] Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('❌ [Frontend] API Error:', errorData);
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const result = await response.json();
+      console.log('✅ [Frontend] Raw API response:', JSON.stringify(result, null, 2));
       
       if (!result.success) {
         throw new Error(result.error || 'Analysis failed');

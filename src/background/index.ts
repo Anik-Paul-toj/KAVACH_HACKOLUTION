@@ -1,5 +1,5 @@
 import { SiteData, TrackerData } from '../utils/types';
-import { TrustScoreCalculator, commonTrackers } from '../utils/privacy';
+import { TrustScoreCalculator, PrivacyPolicyAnalyzer, commonTrackers } from '../utils/privacy';
 
 class BackgroundService {
   private siteData = new Map<string, SiteData>();
@@ -311,293 +311,74 @@ class BackgroundService {
       return { error: 'Invalid URL provided' };
     }
     
-    const policyUrls = this.privacyPolicyUrls.get(domain) || [];
-      // If no privacy policy URLs found, try to find them with enhanced detection
-    if (policyUrls.length === 0) {
-      // Expanded list of common privacy policy paths
-      const commonPaths = [
-        '/privacy',
-        '/privacy-policy',
-        '/privacy.html',
-        '/privacy.php',
-        '/privacy.aspx',
-        '/terms',
-        '/terms-of-service',
-        '/terms-and-conditions',
-        '/legal/privacy',
-        '/legal/terms',
-        '/help/privacy',
-        '/support/privacy',
-        '/about/privacy',
-        '/policies/privacy',
-        '/privacy-statement',
-        '/privacy-notice',
-        '/data-protection',
-        '/cookie-policy',
-        '/gdpr',
-        '/ccpa'
-      ];
-      
-      // Try multiple variations with different protocols and subdomains
-      const urlVariations = [
-        `https://${domain}`,
-        `https://www.${domain}`,
-        `http://${domain}`,
-        `http://www.${domain}`
-      ];
-      
-      for (const baseUrl of urlVariations) {        for (const path of commonPaths) {
-          try {
-            // Use AbortController for timeout
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            
-            const response = await fetch(`${baseUrl}${path}`, {
-              method: 'HEAD', // Use HEAD request for faster checking
-              signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (response.ok) {
-              policyUrls.push(`${baseUrl}${path}`);
-              break; // Found one, move to next base URL
-            }
-          } catch (e) {
-            // Continue to next path
-          }
-        }
-        if (policyUrls.length > 0) break; // Found policy, stop searching
-      }
-    }
-
-    if (policyUrls.length === 0) {
-      return {
-        score: 50,
-        risks: ['No privacy policy found'],
-        summary: 'Unable to locate a privacy policy for this website.',
-        dataSharing: []
-      };
-    }
-
-    // Fetch and analyze the privacy policy
+    console.log('🤖 Starting privacy policy analysis using AI backend for:', siteUrl);
+    console.log('🌐 API endpoint:', 'https://kavach-hackolution.onrender.com/api/privacy-policy/analyze');
+    
     try {
-      const policyText = await this.fetchPrivacyPolicyText(policyUrls[0]);
-      const analysis = await this.performPrivacyAnalysis(policyText, domain);
+      // Use the PrivacyPolicyAnalyzer from utils to call the backend API
+      console.log('📞 Calling PrivacyPolicyAnalyzer.analyzePolicy...');
+      const analysis = await PrivacyPolicyAnalyzer.analyzePolicy(siteUrl);
+      
+      console.log('✅ Privacy policy analysis completed successfully!');
+      console.log('📊 Analysis result:', JSON.stringify(analysis, null, 2));
       
       // Store the analysis in site data
       const siteData = this.siteData.get(domain);
       if (siteData) {
-        siteData.privacyAnalysis = analysis;
+        const processedAnalysis = {
+          score: analysis.score || 50,
+          risks: analysis.risks || [],
+          summary: analysis.summary || 'Privacy policy analysis completed.',
+          safety: analysis.safety || 'RISKY',
+          dataSharing: analysis.dataSharing || [],
+          industryType: analysis.industryType,
+          positiveFeatures: analysis.positiveFeatures,
+          analysisDepth: analysis.analysisDepth,
+          lastAnalyzed: new Date().toISOString()
+        };
+        
+        siteData.privacyAnalysis = processedAnalysis;
         this.siteData.set(domain, siteData);
+        console.log('💾 Analysis stored in site data for:', domain);
       }
       
       return analysis;
-    } catch (error) {
-      console.error('Privacy policy analysis failed:', error);
-      return {
-        score: 30,
-        risks: ['Failed to analyze privacy policy'],
-        summary: 'Privacy policy analysis failed due to technical issues.',
-        dataSharing: []
-      };
-    }
-  }  private async fetchPrivacyPolicyText(policyUrl: string): Promise<string> {
-    try {
-      const response = await fetch(policyUrl);
-      const html = await response.text();
-
-      // Remove script and style tags
-      let cleanHtml = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-      cleanHtml = cleanHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
-
-      // Remove all HTML tags and decode entities
-      let textContent = cleanHtml.replace(/<[^>]*>/g, ' ');
-
-      // Decode common HTML entities
-      textContent = textContent.replace(/&nbsp;/g, ' ')
-                              .replace(/&amp;/g, '&')
-                              .replace(/&lt;/g, '<')
-                              .replace(/&gt;/g, '>')
-                              .replace(/&quot;/g, '"')
-                              .replace(/&#39;/g, "'");
-
-      // Clean up whitespace
-      textContent = textContent.replace(/\s+/g, ' ').trim();
-
-      return textContent;
-    } catch (error) {
-      console.error('Failed to fetch privacy policy:', policyUrl, error);
-      throw new Error(`Failed to fetch privacy policy: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }  private async performPrivacyAnalysis(policyText: string, domain: string): Promise<any> {
-    const text = policyText.toLowerCase();
-    const risks: string[] = [];
-    const dataSharing: string[] = [];
-    let score = 80; // Start with a higher base score
-
-    // Enhanced risk detection with more sophisticated patterns
-    const riskPatterns = {
-      'Data Selling': {
-        keywords: ['sell', 'sale', 'sold', 'monetize', 'revenue from data', 'third-party purchasers'],
-        penalty: 25,
-        context: ['personal information', 'user data', 'your data']
-      },
-      'Cross-site Tracking': {
-        keywords: ['track across', 'follow you', 'behavioral tracking', 'cross-site', 'cross-platform'],
-        penalty: 20,
-        context: ['websites', 'platforms', 'services']
-      },
-      'Vague Data Retention': {
-        keywords: ['indefinitely', 'as long as necessary', 'business purposes', 'legal requirements'],
-        penalty: 15,
-        context: ['retain', 'keep', 'store', 'maintain']
-      },
-      'Limited User Control': {
-        keywords: ['cannot delete', 'unable to remove', 'permanent', 'irrevocable'],
-        penalty: 20,
-        context: ['account', 'data', 'information']
-      },
-      'Broad Data Collection': {
-        keywords: ['all information', 'any data', 'everything', 'comprehensive'],
-        penalty: 15,
-        context: ['collect', 'gather', 'obtain']
-      },
-      'Weak Consent Mechanisms': {
-        keywords: ['deemed consent', 'implied consent', 'continued use', 'by using'],
-        penalty: 18,
-        context: ['agree', 'consent', 'acceptance']
-      },
-      'Data Sharing with Law Enforcement': {
-        keywords: ['law enforcement', 'government agencies', 'legal process', 'subpoena'],
-        penalty: 10,
-        context: ['share', 'provide', 'disclose']
-      },
-      'Location Tracking': {
-        keywords: ['precise location', 'gps', 'geolocation', 'whereabouts'],
-        penalty: 15,
-        context: ['track', 'collect', 'monitor']
-      },
-      'Biometric Data Collection': {
-        keywords: ['biometric', 'fingerprint', 'facial recognition', 'voice print'],
-        penalty: 20,
-        context: ['collect', 'process', 'store']
-      },
-      'Children Data Collection': {
-        keywords: ['under 13', 'children', 'minors', 'parental consent'],
-        penalty: 25,
-        context: ['collect', 'process', 'target']
-      }
-    };
-
-    // Check for risks with context awareness
-    for (const [riskName, config] of Object.entries(riskPatterns)) {
-      const hasKeywords = config.keywords.some(keyword => text.includes(keyword));
-      const hasContext = config.context.some(context => text.includes(context));
       
-      if (hasKeywords && hasContext) {
-        risks.push(riskName);
-        score -= config.penalty;
+    } catch (error) {
+      console.error('❌ Privacy policy analysis failed:', error);
+      console.error('🔍 Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        siteUrl,
+        domain
+      });
+      
+      // Return fallback analysis
+      const fallbackAnalysis = {
+        score: 50,
+        risks: ['Unable to analyze privacy policy - backend service unavailable'],
+        summary: 'Privacy policy analysis failed. This could be due to network issues or service unavailability.',
+        safety: 'RISKY' as const,
+        dataSharing: [],
+        industryType: 'Unknown',
+        positiveFeatures: [],
+        analysisDepth: 'Failed',
+        lastAnalyzed: new Date().toISOString(),
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+      
+      console.log('🔄 Returning fallback analysis:', fallbackAnalysis);
+      
+      // Store fallback analysis
+      const siteData = this.siteData.get(domain);
+      if (siteData) {
+        siteData.privacyAnalysis = fallbackAnalysis;
+        this.siteData.set(domain, siteData);
+        console.log('💾 Fallback analysis stored in site data for:', domain);
       }
+      
+      return fallbackAnalysis;
     }
-
-    // Enhanced data sharing detection
-    const sharingEntities = {
-      'Google': ['google', 'alphabet', 'youtube', 'gmail', 'google analytics', 'doubleclick'],
-      'Meta/Facebook': ['facebook', 'meta', 'instagram', 'whatsapp', 'messenger'],
-      'Amazon': ['amazon', 'aws', 'amazon web services', 'alexa'],
-      'Microsoft': ['microsoft', 'office 365', 'azure', 'bing'],
-      'Apple': ['apple', 'icloud', 'itunes', 'app store'],
-      'TikTok/ByteDance': ['tiktok', 'bytedance'],
-      'Twitter/X': ['twitter', 'x corp'],
-      'Advertising Networks': ['adsense', 'admob', 'advertising partners', 'ad networks'],
-      'Analytics Providers': ['analytics', 'tracking', 'measurement', 'statistics'],
-      'Data Brokers': ['data broker', 'information broker', 'third-party data'],
-      'Marketing Partners': ['marketing partners', 'promotional partners', 'affiliates'],
-      'Government Agencies': ['government', 'law enforcement', 'regulatory agencies']
-    };
-
-    for (const [entity, keywords] of Object.entries(sharingEntities)) {
-      const mentioned = keywords.some(keyword => text.includes(keyword));
-      if (mentioned && !dataSharing.includes(entity)) {
-        dataSharing.push(entity);
-      }
-    }
-
-    // Positive privacy practices (score bonuses)
-    const positivePatterns = [
-      { keywords: ['opt-out', 'opt out'], bonus: 8, description: 'Clear opt-out mechanisms' },
-      { keywords: ['delete account', 'data deletion'], bonus: 10, description: 'Account deletion available' },
-      { keywords: ['anonymize', 'anonymization'], bonus: 6, description: 'Data anonymization' },
-      { keywords: ['encryption', 'encrypted'], bonus: 8, description: 'Data encryption' },
-      { keywords: ['minimal data', 'data minimization'], bonus: 12, description: 'Data minimization principle' },
-      { keywords: ['user control', 'user choice'], bonus: 8, description: 'User control emphasized' },
-      { keywords: ['transparent', 'transparency'], bonus: 6, description: 'Transparency commitment' },
-      { keywords: ['third-party audits', 'security audits'], bonus: 10, description: 'Security auditing' },
-      { keywords: ['gdpr', 'ccpa', 'privacy rights'], bonus: 12, description: 'Privacy law compliance' }
-    ];
-
-    const positiveFeatures: string[] = [];
-    for (const pattern of positivePatterns) {
-      const hasPositive = pattern.keywords.some(keyword => text.includes(keyword));
-      if (hasPositive) {
-        score += pattern.bonus;
-        positiveFeatures.push(pattern.description);
-      }
-    }
-
-    // Industry-specific risk assessment
-    const industryRisks = {
-      'Social Media': ['social', 'posts', 'friends', 'connections'],
-      'E-commerce': ['purchase', 'shopping', 'payment', 'transactions'],
-      'Financial': ['financial', 'banking', 'credit', 'loan'],
-      'Healthcare': ['health', 'medical', 'patient', 'treatment'],
-      'Education': ['student', 'academic', 'education', 'learning']
-    };
-
-    let industryType = 'General';
-    for (const [industry, keywords] of Object.entries(industryRisks)) {
-      const isIndustry = keywords.some(keyword => text.includes(keyword));
-      if (isIndustry) {
-        industryType = industry;
-        // Apply industry-specific scoring adjustments
-        if (industry === 'Financial' || industry === 'Healthcare') {
-          score -= 5; // Higher standards for sensitive industries
-        }
-        break;
-      }
-    }
-
-    // Ensure score stays within bounds
-    score = Math.max(0, Math.min(100, score));
-
-    // Generate enhanced summary
-    let summary = `This ${industryType.toLowerCase()} privacy policy has been analyzed for comprehensive privacy practices. `;
-    
-    if (score >= 80) {
-      summary += 'The policy demonstrates strong privacy protection with clear user rights, limited data sharing, and transparent practices.';
-    } else if (score >= 60) {
-      summary += 'The policy shows reasonable privacy practices but has some areas of concern regarding data collection or sharing.';
-    } else if (score >= 40) {
-      summary += 'The policy has significant privacy concerns with extensive data collection, sharing, or unclear user rights.';
-    } else {
-      summary += 'The policy raises serious privacy concerns with poor user protection, extensive data sharing, or lack of user control.';
-    }
-
-    if (positiveFeatures.length > 0) {
-      summary += ` Positive aspects include: ${positiveFeatures.slice(0, 3).join(', ')}.`;
-    }
-
-    return {
-      score,
-      risks: risks.slice(0, 8), // Limit to most important risks
-      summary,
-      dataSharing: [...new Set(dataSharing)].slice(0, 8), // Remove duplicates and limit
-      industryType,
-      positiveFeatures: positiveFeatures.slice(0, 5),
-      analysisDepth: 'Enhanced AI Analysis',
-      lastAnalyzed: new Date().toISOString()
-    };
   }
 
   async getFingerprintScript(apiKey: string): Promise<{ script: string } | { error: string }> {

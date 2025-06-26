@@ -20,6 +20,33 @@ const PrivacyAnalysis: React.FC<PrivacyAnalysisProps> = ({ analysis }) => {
     return 'Critical';
   };
 
+  const getSafetyColor = (safety: string) => {
+    switch (safety) {
+      case 'SAFE': return '#10b981';
+      case 'RISKY': return '#f59e0b';
+      case 'UNSAFE': return '#ef4444';
+      default: return '#6b7280';
+    }
+  };
+
+  const getSafetyIcon = (safety: string) => {
+    switch (safety) {
+      case 'SAFE': return '🛡️';
+      case 'RISKY': return '⚠️';
+      case 'UNSAFE': return '🚨';
+      default: return '❓';
+    }
+  };
+
+  const getSafetyLabel = (safety: string) => {
+    switch (safety) {
+      case 'SAFE': return 'Safe Privacy Practices';
+      case 'RISKY': return 'Risky Privacy Practices';
+      case 'UNSAFE': return 'Unsafe Privacy Practices';
+      default: return 'Unknown Safety Level';
+    }
+  };
+
   return (
     <div className="section">
       <div className="section-title">
@@ -90,6 +117,50 @@ const PrivacyAnalysis: React.FC<PrivacyAnalysisProps> = ({ analysis }) => {
           {getScoreLabel(analysis.score)} Privacy Protection
         </div>
       </div>
+      
+      {/* Safety Rating Badge */}
+      {analysis.safety && (
+        <div style={{ 
+          background: `linear-gradient(135deg, ${getSafetyColor(analysis.safety)}15, ${getSafetyColor(analysis.safety)}25)`, 
+          padding: '16px', 
+          borderRadius: '12px', 
+          marginBottom: '16px',
+          border: `2px solid ${getSafetyColor(analysis.safety)}30`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <div style={{ 
+            fontSize: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '40px',
+            height: '40px',
+            background: `${getSafetyColor(analysis.safety)}20`,
+            borderRadius: '50%'
+          }}>
+            {getSafetyIcon(analysis.safety)}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ 
+              fontSize: '16px', 
+              fontWeight: '700', 
+              color: getSafetyColor(analysis.safety),
+              marginBottom: '4px'
+            }}>
+              {analysis.safety}
+            </div>
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#64748b',
+              fontWeight: '500'
+            }}>
+              {getSafetyLabel(analysis.safety)}
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="privacy-summary" style={{ 
         fontSize: '14px', 
