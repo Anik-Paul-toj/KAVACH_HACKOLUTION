@@ -5,24 +5,23 @@ class BackgroundService {
   private siteData = new Map<string, SiteData>();
   private blockedRequests = new Map<string, number>();
   private privacyPolicyUrls = new Map<string, string[]>();
+  private readonly MAX_SITE_DATA_ENTRIES = 100; // Prevent memory bloat
+  private readonly MAX_TRACKERS_PER_SITE = 50; // Limit trackers per site
 
   constructor() {
-    console.log('🚀 Kavach Background Service starting...');
     this.setupRequestBlocking();
     this.setupTabListeners();
     this.setupMessageListeners();
-    console.log('✅ Kavach Background Service initialized');
+    
+    // Clean up old data periodically
+    setInterval(() => this.cleanupOldData(), 300000); // Every 5 minutes
   }
 
   private safeParseURL(url: string): URL | null {
     try {
-      if (!url || typeof url !== 'string') {
-        console.warn('❌ Invalid URL input:', url);
-        return null;
-      }
+      if (!url || typeof url !== 'string') return null;
       return new URL(url);
-    } catch (error) {
-      console.warn('❌ Failed to parse URL:', url, error);
+    } catch {
       return null;
     }
   }
@@ -31,20 +30,15 @@ class BackgroundService {
     const parsedUrl = this.safeParseURL(url);
     return parsedUrl ? parsedUrl.hostname : null;
   }  private setupRequestBlocking() {
-    console.log('🛡️ Kavach: Setting up request blocking...');
-    
     // Monitor web requests to track third-party requests
     chrome.webRequest.onBeforeRequest.addListener(
       (details) => {
-        console.log('🌐 Request detected:', details.url, 'Type:', details.type, 'Initiator:', details.initiator);
-        
         if (details.type === 'main_frame') return {};
         
         const url = this.safeParseURL(details.url);
         const initiatorUrl = details.initiator ? this.safeParseURL(details.initiator) : null;
         
         if (url && initiatorUrl && url.hostname !== initiatorUrl.hostname) {
-          console.log('🚨 Third-party request:', url.hostname, 'from', initiatorUrl.hostname);
           this.trackThirdPartyRequest(initiatorUrl.hostname, url.hostname, details.type);
         }
         
@@ -54,25 +48,20 @@ class BackgroundService {
       ['requestBody']
     );
   }  private setupTabListeners() {
-    console.log('👂 Setting up tab listeners...');
-    
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       if (changeInfo.status === 'complete' && tab.url && this.isValidHttpUrl(tab.url)) {
-        console.log('📄 Tab completed loading:', tab.url);
         this.initializeSiteData(tab.url);
       }
     });
 
-    // Also listen for tab activation to ensure we have data for active tabs
     chrome.tabs.onActivated.addListener(async (activeInfo) => {
       try {
         const tab = await chrome.tabs.get(activeInfo.tabId);
         if (tab.url && this.isValidHttpUrl(tab.url)) {
-          console.log('🔄 Tab activated:', tab.url);
           this.initializeSiteData(tab.url);
         }
       } catch (error) {
-        console.log('❌ Error getting active tab:', error);
+        // Silently handle tab access errors
       }
     });
   }
@@ -84,46 +73,45 @@ class BackgroundService {
     } catch {
       return false;
     }
-  }private trackThirdPartyRequest(sourceDomain: string, trackerDomain: string, requestType: string) {
-    console.log('📊 Tracking third-party request:', { sourceDomain, trackerDomain, requestType });
-    
-    let siteData = this.siteData.get(sourceDomain);
-    if (!siteData) {
-      console.log('❌ No site data found for:', sourceDomain, '- Creating new site data');
-      // Initialize site data for this domain
-      this.initializeSiteDataForDomain(sourceDomain);
-      siteData = this.siteData.get(sourceDomain);
+  }  private trackThirdPartyRequest(sourceDomain: string, trackerDomain: string, requestType: string) {
+    try {
+      let siteData = this.siteData.get(sourceDomain);
       if (!siteData) {
-        console.log('❌ Failed to create site data for:', sourceDomain);
-        return;
+        this.initializeSiteDataForDomain(sourceDomain);
+        siteData = this.siteData.get(sourceDomain);
+        if (!siteData) return;
       }
-    }
 
-    const existingTracker = siteData.trackers.find(t => t.domain === trackerDomain);
-    if (existingTracker) {
-      existingTracker.count++;
-      console.log('📈 Updated tracker count:', trackerDomain, existingTracker.count);
-    } else {
-      const trackerInfo = commonTrackers[trackerDomain as keyof typeof commonTrackers];
-      const newTracker = {
-        domain: trackerDomain,
-        count: 1,
-        category: trackerInfo?.category || 'unknown',
-        blocked: this.isTrackerBlocked(trackerDomain)
-      };
-      siteData.trackers.push(newTracker);
-      console.log('🆕 New tracker detected:', newTracker);
-    }
+      // Prevent tracking invalid domains
+      if (!trackerDomain || trackerDomain === sourceDomain) return;
 
-    // Recalculate trust score
-    const oldScore = siteData.trustScore;
-    siteData.trustScore = TrustScoreCalculator.calculateScore(siteData.trackers);
-    console.log('🎯 Trust score updated:', oldScore, '→', siteData.trustScore);
-    
-    // Update data flow visualization
-    this.updateDataFlow(siteData, sourceDomain, trackerDomain);
-    
-    this.siteData.set(sourceDomain, siteData);
+      const existingTracker = siteData.trackers.find(t => t.domain === trackerDomain);
+      if (existingTracker) {
+        existingTracker.count = Math.min(existingTracker.count + 1, 1000); // Cap at 1000
+      } else {
+        // Prevent adding too many trackers
+        if (siteData.trackers.length >= this.MAX_TRACKERS_PER_SITE) return;
+        
+        const trackerInfo = commonTrackers[trackerDomain as keyof typeof commonTrackers];
+        const newTracker = {
+          domain: trackerDomain,
+          count: 1,
+          category: trackerInfo?.category || 'unknown',
+          blocked: this.isTrackerBlocked(trackerDomain)
+        };
+        siteData.trackers.push(newTracker);
+      }
+
+      // Recalculate trust score
+      siteData.trustScore = TrustScoreCalculator.calculateScore(siteData.trackers);
+      
+      // Update data flow visualization
+      this.updateDataFlow(siteData, sourceDomain, trackerDomain);
+      
+      this.siteData.set(sourceDomain, siteData);
+    } catch (error) {
+      // Silently handle tracking errors to prevent extension crashes
+    }
   }
 
   private isTrackerBlocked(domain: string): boolean {
@@ -163,12 +151,7 @@ class BackgroundService {
     }
   }  private initializeSiteData(url: string) {
     const domain = this.getDomainFromURL(url);
-    if (!domain) {
-      console.warn('❌ Cannot initialize site data for invalid URL:', url);
-      return;
-    }
-    
-    console.log('🏠 Initializing site data for:', domain);
+    if (!domain) return;
     
     if (!this.siteData.has(domain)) {
       const newSiteData = {
@@ -181,18 +164,13 @@ class BackgroundService {
         }
       };
       this.siteData.set(domain, newSiteData);
-      console.log('✅ Site data initialized:', newSiteData);
-    } else {
-      console.log('♻️ Site data already exists for:', domain);
     }
   }
 
   private initializeSiteDataForDomain(domain: string) {
-    console.log('🏠 Initializing site data for domain:', domain);
-    
     if (!this.siteData.has(domain)) {
       const newSiteData = {
-        url: `https://${domain}`, // Construct basic URL from domain
+        url: `https://${domain}`,
         trustScore: 100,
         trackers: [],
         dataFlow: {
@@ -201,26 +179,17 @@ class BackgroundService {
         }
       };
       this.siteData.set(domain, newSiteData);
-      console.log('✅ Site data initialized for domain:', newSiteData);
-    } else {
-      console.log('♻️ Site data already exists for domain:', domain);
     }
   }  async getSiteData(url: string): Promise<SiteData | null> {
     const domain = this.getDomainFromURL(url);
-    if (!domain) {
-      console.warn('❌ Cannot get site data for invalid URL:', url);
-      return null;
-    }
+    if (!domain) return null;
     
     // Ensure site data exists for this domain
     if (!this.siteData.has(domain)) {
-      console.log('🔄 Site data not found, initializing for:', domain);
       this.initializeSiteData(url);
     }
     
-    const siteData = this.siteData.get(domain) || null;
-    console.log('📊 Getting site data for:', domain, 'Found:', !!siteData, 'Trackers:', siteData?.trackers?.length || 0);
-    return siteData;
+    return this.siteData.get(domain) || null;
   }
   async toggleTrackerBlocking(enabled: boolean) {
     // Toggle declarative net request rules
@@ -238,8 +207,6 @@ class BackgroundService {
   }
   private setupMessageListeners() {
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      console.log('📨 Message received:', request.action, request);
-      
       switch (request.action) {
         case 'getSiteData':
           this.getSiteData(request.url).then(sendResponse);
@@ -252,6 +219,8 @@ class BackgroundService {
         case 'toggleBlocking':
           this.toggleTrackerBlocking(request.enabled).then(() => {
             sendResponse({ success: true });
+          }).catch(() => {
+            sendResponse({ success: false });
           });
           return true;
 
@@ -265,7 +234,6 @@ class BackgroundService {
           return true;
 
         case 'debugInfo':
-          // Return debug information
           const debugInfo = {
             trackedDomains: Array.from(this.siteData.keys()),
             totalSites: this.siteData.size,
@@ -275,9 +243,9 @@ class BackgroundService {
               trustScore: data.trustScore
             }))
           };
-          console.log('🐛 Debug info requested:', debugInfo);
           sendResponse(debugInfo);
           return true;
+
         case 'runFingerprint':
           if (request.tabId) {
             this.handleFingerprinting(request.apiKey, request.tabId)
@@ -286,95 +254,79 @@ class BackgroundService {
           } else {
             sendResponse({ success: false, error: 'No tabId provided in the request.' });
           }
-          return true; // Keep channel open for async response
+          return true;
 
         case 'performOptOut':
           this.performComprehensiveOptOut(request.url, request.tabId)
             .then(sendResponse)
             .catch((error: any) => sendResponse({ success: false, error: error.message }));
           return true;
+
+        default:
+          sendResponse({ error: 'Unknown action' });
+          return false;
       }
     });
   }
   private storePrivacyPolicyUrls(siteUrl: string, policyUrls: string[]) {
     const domain = this.getDomainFromURL(siteUrl);
-    if (!domain) {
-      console.warn('❌ Cannot store privacy policy URLs for invalid URL:', siteUrl);
-      return;
+    if (domain && Array.isArray(policyUrls)) {
+      this.privacyPolicyUrls.set(domain, policyUrls);
     }
-    this.privacyPolicyUrls.set(domain, policyUrls);
   }
   async analyzePrivacyPolicy(siteUrl: string): Promise<any> {
     const domain = this.getDomainFromURL(siteUrl);
     if (!domain) {
-      console.warn('❌ Cannot analyze privacy policy for invalid URL:', siteUrl);
       return { error: 'Invalid URL provided' };
     }
     
-    console.log('🤖 Starting privacy policy analysis using AI backend for:', siteUrl);
-    console.log('🌐 API endpoint:', 'https://kavach-hackolution.onrender.com/api/privacy-policy/analyze');
-    
     try {
       // Use the PrivacyPolicyAnalyzer from utils to call the backend API
-      console.log('📞 Calling PrivacyPolicyAnalyzer.analyzePolicy...');
       const analysis = await PrivacyPolicyAnalyzer.analyzePolicy(siteUrl);
-      
-      console.log('✅ Privacy policy analysis completed successfully!');
-      console.log('📊 Analysis result:', JSON.stringify(analysis, null, 2));
       
       // Store the analysis in site data
       const siteData = this.siteData.get(domain);
-      if (siteData) {
+      if (siteData && analysis) {
         const processedAnalysis = {
-          score: analysis.score || 50,
-          risks: analysis.risks || [],
+          score: Math.max(0, Math.min(100, analysis.score || 50)),
+          risks: Array.isArray(analysis.risks) ? analysis.risks.slice(0, 10) : [],
           summary: analysis.summary || 'Privacy policy analysis completed.',
-          safety: analysis.safety || 'RISKY',
-          dataSharing: analysis.dataSharing || [],
-          industryType: analysis.industryType,
-          positiveFeatures: analysis.positiveFeatures,
-          analysisDepth: analysis.analysisDepth,
+          safety: ['SAFE', 'RISKY', 'UNSAFE'].includes(analysis.safety) ? analysis.safety : 'RISKY',
+          dataSharing: Array.isArray(analysis.dataSharing) ? analysis.dataSharing.slice(0, 8) : [],
+          industryType: analysis.industryType || 'Unknown',
+          positiveFeatures: Array.isArray(analysis.positiveFeatures) ? analysis.positiveFeatures.slice(0, 5) : [],
+          analysisDepth: analysis.analysisDepth || 'AI Analysis',
           lastAnalyzed: new Date().toISOString()
         };
         
         siteData.privacyAnalysis = processedAnalysis;
         this.siteData.set(domain, siteData);
-        console.log('💾 Analysis stored in site data for:', domain);
+        
+        // Return the processed analysis
+        return processedAnalysis;
       }
       
       return analysis;
       
     } catch (error) {
-      console.error('❌ Privacy policy analysis failed:', error);
-      console.error('🔍 Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace',
-        siteUrl,
-        domain
-      });
-      
-      // Return fallback analysis
+      // Return fallback analysis for any errors
       const fallbackAnalysis = {
         score: 50,
-        risks: ['Unable to analyze privacy policy - backend service unavailable'],
-        summary: 'Privacy policy analysis failed. This could be due to network issues or service unavailability.',
+        risks: ['Unable to analyze privacy policy - service temporarily unavailable'],
+        summary: 'Privacy policy analysis failed. Please try again later or review the policy manually.',
         safety: 'RISKY' as const,
         dataSharing: [],
         industryType: 'Unknown',
         positiveFeatures: [],
         analysisDepth: 'Failed',
-        lastAnalyzed: new Date().toISOString(),
-        error: error instanceof Error ? error.message : 'Unknown error'
+        lastAnalyzed: new Date().toISOString()
       };
-      
-      console.log('🔄 Returning fallback analysis:', fallbackAnalysis);
       
       // Store fallback analysis
       const siteData = this.siteData.get(domain);
       if (siteData) {
         siteData.privacyAnalysis = fallbackAnalysis;
         this.siteData.set(domain, siteData);
-        console.log('💾 Fallback analysis stored in site data for:', domain);
       }
       
       return fallbackAnalysis;
@@ -434,8 +386,6 @@ class BackgroundService {
         throw new Error('Invalid URL provided');
       }
 
-      console.log('🚫 Starting comprehensive opt-out for:', domain);
-
       // Step 1: Update tracking rules to block this domain
       await this.addDomainToBlockList(domain);
 
@@ -464,8 +414,6 @@ class BackgroundService {
         siteData.trackers = []; // Clear tracked requests
         this.siteData.set(domain, siteData);
       }
-
-      console.log('✅ Background opt-out processing completed for:', domain);
       
       return { 
         success: true, 
@@ -473,7 +421,6 @@ class BackgroundService {
       };
 
     } catch (error: any) {
-      console.error('❌ Background opt-out failed:', error);
       return { 
         success: false, 
         error: `Opt-out failed: ${error.message}` 
@@ -483,17 +430,15 @@ class BackgroundService {
 
   private async addDomainToBlockList(domain: string): Promise<void> {
     try {
-      // Get existing blocked domains
       const storage = await chrome.storage.local.get(['blockedDomains']);
       const blockedDomains = storage.blockedDomains || [];
       
       if (!blockedDomains.includes(domain)) {
         blockedDomains.push(domain);
         await chrome.storage.local.set({ blockedDomains });
-        console.log('📝 Added domain to block list:', domain);
       }
     } catch (error) {
-      console.warn('Failed to add domain to block list:', error);
+      // Silently handle storage errors
     }
   }
 
@@ -506,10 +451,8 @@ class BackgroundService {
       const keysToDelete = Array.from(this.blockedRequests.keys())
         .filter(key => key.includes(domain));
       keysToDelete.forEach(key => this.blockedRequests.delete(key));
-      
-      console.log('🧹 Cleared tracking data for:', domain);
     } catch (error) {
-      console.warn('Failed to clear domain tracking data:', error);
+      // Silently handle cleanup errors
     }
   }
 
@@ -535,11 +478,12 @@ class BackgroundService {
         }
       ];
 
-      // YouTube-specific blocking rules
+      // Enhanced blocking for specific domains
       if (domain.includes('youtube.com') || domain.includes('google.com')) {
+        const baseId = Date.now();
         newRules.push(
           {
-            id: Date.now() + 1,
+            id: baseId + 1,
             priority: 2,
             action: { type: 'block' as chrome.declarativeNetRequest.RuleActionType },
             condition: {
@@ -548,7 +492,7 @@ class BackgroundService {
             }
           },
           {
-            id: Date.now() + 2,
+            id: baseId + 2,
             priority: 2,
             action: { type: 'block' as chrome.declarativeNetRequest.RuleActionType },
             condition: {
@@ -557,7 +501,7 @@ class BackgroundService {
             }
           },
           {
-            id: Date.now() + 3,
+            id: baseId + 3,
             priority: 2,
             action: { type: 'block' as chrome.declarativeNetRequest.RuleActionType },
             condition: {
@@ -571,11 +515,40 @@ class BackgroundService {
       await chrome.declarativeNetRequest.updateDynamicRules({
         addRules: newRules
       });
-
-      console.log('🛡️ Enhanced blocking enabled for:', domain);
     } catch (error) {
-      console.warn('Failed to enable enhanced blocking:', error);
+      // Silently handle rule creation errors
     }
+  }
+
+  private cleanupOldData(): void {
+    // Limit the number of stored site data entries
+    if (this.siteData.size > this.MAX_SITE_DATA_ENTRIES) {
+      const entries = Array.from(this.siteData.entries());
+      const sortedEntries = entries.sort((a, b) => {
+        const aTime = a[1].privacyAnalysis?.lastAnalyzed || '0';
+        const bTime = b[1].privacyAnalysis?.lastAnalyzed || '0';
+        return aTime.localeCompare(bTime);
+      });
+      
+      // Remove oldest entries
+      const toRemove = sortedEntries.slice(0, this.siteData.size - this.MAX_SITE_DATA_ENTRIES);
+      toRemove.forEach(([domain]) => {
+        this.siteData.delete(domain);
+      });
+    }
+    
+    // Limit trackers per site to prevent memory bloat
+    this.siteData.forEach((siteData, domain) => {
+      if (siteData.trackers.length > this.MAX_TRACKERS_PER_SITE) {
+        // Keep only the most frequent trackers
+        siteData.trackers = siteData.trackers
+          .sort((a, b) => b.count - a.count)
+          .slice(0, this.MAX_TRACKERS_PER_SITE);
+        
+        // Recalculate trust score after cleanup
+        siteData.trustScore = TrustScoreCalculator.calculateScore(siteData.trackers);
+      }
+    });
   }
 }
 

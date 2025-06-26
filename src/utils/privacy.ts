@@ -29,101 +29,52 @@ export class PrivacyPolicyAnalyzer {
 
   static async analyzePolicy(url: string): Promise<any> {
     try {
-      console.log('🚀 [Frontend] Starting privacy policy analysis for:', url);
-      console.log('🌐 [Frontend] API endpoint:', `${this.API_BASE_URL}/privacy-policy/analyze`);
-      
-      const requestBody = { url };
-      console.log('📤 [Frontend] Request body:', JSON.stringify(requestBody, null, 2));
-      
       const response = await fetch(`${this.API_BASE_URL}/privacy-policy/analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
-        // Add timeout for Chrome extension
+        body: JSON.stringify({ url }),
         signal: AbortSignal.timeout(30000) // 30 second timeout
       });
 
-      console.log('📥 [Frontend] Response status:', response.status, response.statusText);
-      console.log('📥 [Frontend] Response headers:', Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ [Frontend] API Error:', errorData);
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const result = await response.json();
-      console.log('✅ [Frontend] Raw API response:', JSON.stringify(result, null, 2));
       
       if (!result.success) {
         throw new Error(result.error || 'Analysis failed');
       }
       
-      console.log('Privacy policy analysis completed:', result.data);
       return result.data;
       
     } catch (error) {
-      console.error('Privacy policy analysis failed:', error);
-      
       // Return enhanced fallback data based on error type
       const fallbackAnalysis = {
         score: 50,
         risks: ['Unable to analyze privacy policy - please review manually'],
         summary: 'Privacy policy analysis failed. This could be due to network issues, missing privacy policy, or service unavailability.',
+        safety: 'RISKY' as const,
         dataSharing: [],
-        recommendations: [
-          'Review the privacy policy manually',
-          'Check if the website has a privacy policy',
-          'Contact the website for clarification on data practices'
-        ],
-        complianceStatus: {
-          gdpr: 'unclear' as const,
-          ccpa: 'unclear' as const,
-          coppa: 'unclear' as const
-        },
-        dataRetention: 'Unable to determine data retention policy',
-        userRights: [],
-        thirdPartySharing: true, // Assume worst case
-        cookiePolicy: 'Unable to determine cookie policy',
-        policyMetadata: {
-          url: null,
-          title: 'Privacy Policy Analysis Failed',
-          analyzedAt: new Date().toISOString(),
-          error: error instanceof Error ? error.message : 'Unknown error'
-        }
+        industryType: 'Unknown',
+        positiveFeatures: [],
+        analysisDepth: 'Failed',
+        lastAnalyzed: new Date().toISOString()
       };
 
       // Provide more specific feedback based on error type
       if (error instanceof Error) {
         if (error.message.includes('timeout') || error.message.includes('AbortError')) {
           fallbackAnalysis.summary = 'Privacy policy analysis timed out. The website may be slow to respond.';
-          fallbackAnalysis.recommendations = [
-            'Try again in a few minutes',
-            'Check your internet connection',
-            'Review the privacy policy manually'
-          ];
         } else if (error.message.includes('404') || error.message.includes('not found')) {
           fallbackAnalysis.summary = 'No privacy policy was found on this website.';
-          fallbackAnalysis.score = 30; // Lower score for missing privacy policy
-          fallbackAnalysis.risks = [
-            'No privacy policy found',
-            'Data practices unclear',
-            'User rights undefined'
-          ];
-          fallbackAnalysis.recommendations = [
-            'Contact the website to request their privacy policy',
-            'Avoid sharing personal information',
-            'Consider the privacy implications of using this site'
-          ];
+          fallbackAnalysis.score = 30;
+          fallbackAnalysis.risks = ['No privacy policy found', 'Data practices unclear', 'User rights undefined'];
         } else if (error.message.includes('network') || error.message.includes('fetch')) {
           fallbackAnalysis.summary = 'Unable to connect to privacy analysis service.';
-          fallbackAnalysis.recommendations = [
-            'Check your internet connection',
-            'Try again later',
-            'Review the privacy policy manually'
-          ];
         }
       }
 
