@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { privacyPolicyRouter } from './routes/privacy-policy.js';
 import { errorHandler } from './middleware/error-handler.js';
+import hibpRoutes from './routes/hibp';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -84,6 +85,7 @@ app.get('/api', (req, res) => {
 // API routes
 console.log('🔗 Registering API routes...');
 app.use('/api/privacy-policy', privacyPolicyRouter);
+app.use('/api/hibp', hibpRoutes);
 console.log('✅ Privacy policy routes registered');
 
 // Error handling middleware (should be last)

@@ -1316,10 +1316,6 @@ const App: React.FC = () => {
                 <div className="section-title">
                   Tracker Blocking
                 </div>
-                <div 
-                  className={`toggle-switch ${blockingEnabled ? 'active' : ''}`}
-                  onClick={() => handleToggleBlocking(!blockingEnabled)}
-                />
               </div>
               <TrackerList trackers={siteData.trackers} />
             </div>

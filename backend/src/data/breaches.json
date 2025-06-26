@@ -1,0 +1,8 @@
+[
+  {
+    "name": "ExampleBreach",
+    "domain": "example.com",
+    "breachDate": "2023-01-01",
+    "emails": ["test@example.com", "user@domain.com"]
+  }
+] 
