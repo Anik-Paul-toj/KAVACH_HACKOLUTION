@@ -1317,7 +1317,7 @@ const App: React.FC = () => {
                   Tracker Blocking
                 </div>
               </div>
-              <TrackerList trackers={siteData.trackers} />
+              <TrackerList trackers={siteData.trackers} onBlock={loadCurrentSiteData} />
             </div>
 
             {siteData.privacyAnalysis && (

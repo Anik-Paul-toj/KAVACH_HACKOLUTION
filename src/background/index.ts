@@ -76,8 +76,10 @@ class BackgroundService {
   private readonly MAX_SITE_DATA_ENTRIES = 100; // Prevent memory bloat
   private readonly MAX_TRACKERS_PER_SITE = 50; // Limit trackers per site
   private lruCache = new LRUCache<string, { data: SiteData, timestamp: number }>(100); // 100 entries max
+  private blockedDomains: string[] = [];
 
   constructor() {
+    this.loadBlockedDomains();
     this.setupRequestBlocking();
     this.setupTabListeners();
     this.setupMessageListeners();
@@ -100,19 +102,24 @@ class BackgroundService {
     return parsedUrl ? parsedUrl.hostname : null;
   }
 
+  private async loadBlockedDomains() {
+    const storage = await chrome.storage.local.get(['blockedDomains']);
+    this.blockedDomains = storage.blockedDomains || [];
+  }
+
+  private isTrackerBlocked(domain: string): boolean {
+    return this.blockedDomains.some(blocked => domain.includes(blocked));
+  }
+
   private setupRequestBlocking() {
-    // Monitor web requests to track third-party requests
     chrome.webRequest.onBeforeRequest.addListener(
       (details) => {
         if (details.type === 'main_frame') return {};
-        
         const url = this.safeParseURL(details.url);
         const initiatorUrl = details.initiator ? this.safeParseURL(details.initiator) : null;
-        
         if (url && initiatorUrl && url.hostname !== initiatorUrl.hostname) {
           this.trackThirdPartyRequest(initiatorUrl.hostname, url.hostname, details.type);
         }
-        
         return {};
       },
       { urls: ['<all_urls>'] },
@@ -156,17 +163,13 @@ class BackgroundService {
         siteData = this.siteData.get(sourceDomain);
         if (!siteData) return;
       }
-
-      // Prevent tracking invalid domains
       if (!trackerDomain || trackerDomain === sourceDomain) return;
-
       const existingTracker = siteData.trackers.find(t => t.domain === trackerDomain);
       if (existingTracker) {
-        existingTracker.count = Math.min(existingTracker.count + 1, 1000); // Cap at 1000
+        existingTracker.count = Math.min(existingTracker.count + 1, 1000);
+        existingTracker.blocked = this.isTrackerBlocked(trackerDomain);
       } else {
-        // Prevent adding too many trackers
         if (siteData.trackers.length >= this.MAX_TRACKERS_PER_SITE) return;
-        
         const trackerInfo = commonTrackers[trackerDomain as keyof typeof commonTrackers];
         const newTracker = {
           domain: trackerDomain,
@@ -176,23 +179,12 @@ class BackgroundService {
         };
         siteData.trackers.push(newTracker);
       }
-
-      // Recalculate trust score
       siteData.trustScore = TrustScoreCalculator.calculateScore(siteData.trackers);
-      
-      // Update data flow visualization
       this.updateDataFlow(siteData, sourceDomain, trackerDomain);
-      
       this.siteData.set(sourceDomain, siteData);
     } catch (error) {
       // Silently handle tracking errors to prevent extension crashes
     }
-  }
-
-  private isTrackerBlocked(domain: string): boolean {
-    // Check if domain is in our blocking rules
-    const blockedDomains = ['doubleclick.net', 'googletagmanager.com', 'facebook.com/tr'];
-    return blockedDomains.some(blocked => domain.includes(blocked));
   }
 
   private updateDataFlow(siteData: SiteData, source: string, tracker: string) {
@@ -353,6 +345,38 @@ class BackgroundService {
           this.siteData.clear();
           chrome.storage.local.remove('kavachSiteDataCache', () => {
             sendResponse({ success: true });
+          });
+          return true;
+
+        case 'blockTracker':
+          this.addDomainToBlockList(request.domain).then(() => {
+            this.blockedDomains.push(request.domain);
+            for (const siteData of this.siteData.values()) {
+              for (const tracker of siteData.trackers) {
+                if (tracker.domain === request.domain) {
+                  tracker.blocked = true;
+                }
+              }
+            }
+            sendResponse({ success: true });
+          }).catch(() => {
+            sendResponse({ success: false });
+          });
+          return true;
+
+        case 'unblockTracker':
+          this.removeDomainFromBlockList(request.domain).then(() => {
+            this.blockedDomains = this.blockedDomains.filter(d => d !== request.domain);
+            for (const siteData of this.siteData.values()) {
+              for (const tracker of siteData.trackers) {
+                if (tracker.domain === request.domain) {
+                  tracker.blocked = false;
+                }
+              }
+            }
+            sendResponse({ success: true });
+          }).catch(() => {
+            sendResponse({ success: false });
           });
           return true;
 
@@ -672,6 +696,17 @@ class BackgroundService {
       });
     } catch (e) {
       // Ignore
+    }
+  }
+
+  private async removeDomainFromBlockList(domain: string): Promise<void> {
+    try {
+      const storage = await chrome.storage.local.get(['blockedDomains']);
+      let blockedDomains = storage.blockedDomains || [];
+      blockedDomains = blockedDomains.filter((d: string) => d !== domain);
+      await chrome.storage.local.set({ blockedDomains });
+    } catch (error) {
+      // Silently handle storage errors
     }
   }
 }

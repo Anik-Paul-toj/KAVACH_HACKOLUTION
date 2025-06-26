@@ -1,4 +1,3 @@
-
 class ContentScript {
   private privacyPolicyUrls: string[] = [];
   private optedOutDomains: Set<string> = new Set();

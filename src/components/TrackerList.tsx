@@ -3,9 +3,10 @@ import { TrackerData } from '../utils/types';
 
 interface TrackerListProps {
   trackers: TrackerData[];
+  onBlock?: () => void;
 }
 
-const TrackerList: React.FC<TrackerListProps> = ({ trackers }) => {  if (trackers.length === 0) {
+const TrackerList: React.FC<TrackerListProps> = ({ trackers, onBlock }) => {  if (trackers.length === 0) {
     return (
       <div className="empty-state" style={{ textAlign: 'center', padding: '32px' }}>
         <p style={{ fontSize: '16px', fontWeight: '600', color: '#64748b' }}>No trackers detected</p>
@@ -32,6 +33,26 @@ const TrackerList: React.FC<TrackerListProps> = ({ trackers }) => {  if (tracker
 
   const blockedCount = trackers.filter(t => t.blocked).length;
   const totalRequests = trackers.reduce((sum, t) => sum + t.count, 0);
+
+  const handleBlockTracker = (domain: string) => {
+    console.log(`Blocking tracker: ${domain}`);
+    chrome.runtime.sendMessage({ action: 'blockTracker', domain }, (response) => {
+      if (onBlock) onBlock();
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) chrome.tabs.reload(tabs[0].id);
+      });
+    });
+  };
+
+  const handleUnblockTracker = (domain: string) => {
+    console.log(`Unblocking tracker: ${domain}`);
+    chrome.runtime.sendMessage({ action: 'unblockTracker', domain }, (response) => {
+      if (onBlock) onBlock();
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) chrome.tabs.reload(tabs[0].id);
+      });
+    });
+  };
 
   return (
     <div>
@@ -88,6 +109,29 @@ const TrackerList: React.FC<TrackerListProps> = ({ trackers }) => {  if (tracker
                 <span className={`tracker-category ${getCategoryClass(tracker.category)}`}>
                   {tracker.category}
                 </span>
+                {!tracker.blocked && (
+                  <button
+                    className="block-tracker-btn"
+                    style={{ marginLeft: 8, padding: '2px 8px', fontSize: 12, borderRadius: 6, border: '1px solid #dc2626', background: '#fff', color: '#dc2626', cursor: 'pointer' }}
+                    onClick={() => handleBlockTracker(tracker.domain)}
+                    title="Block this tracker"
+                  >
+                    Block
+                  </button>
+                )}
+                {tracker.blocked && (
+                  <>
+                    <span className="blocked-indicator">Blocked</span>
+                    <button
+                      className="unblock-tracker-btn"
+                      style={{ marginLeft: 8, padding: '2px 8px', fontSize: 12, borderRadius: 6, border: '1px solid #007E36', background: '#fff', color: '#007E36', cursor: 'pointer' }}
+                      onClick={() => handleUnblockTracker(tracker.domain)}
+                      title="Unblock this tracker"
+                    >
+                      Unblock
+                    </button>
+                  </>
+                )}
               </div>
               <div style={{ 
                 fontSize: '15px', 
@@ -101,45 +145,7 @@ const TrackerList: React.FC<TrackerListProps> = ({ trackers }) => {  if (tracker
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span className="tracker-count">
                 {tracker.count} req{tracker.count !== 1 ? 's' : ''}
-              </span>              {tracker.blocked ? (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '4px',
-                  background: 'linear-gradient(135deg, #DFFF19, #007E36)',
-                  padding: '4px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #007E36'
-                }}>
-                  <span style={{ 
-                    fontSize: '11px', 
-                    fontWeight: '700', 
-                    color: '#003d1b',
-                    textTransform: 'uppercase'
-                  }}>
-                    Blocked
-                  </span>
-                </div>
-              ) : (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '4px',
-                  background: 'linear-gradient(135deg, #fef2f2, #fee2e2)',
-                  padding: '4px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #fecaca'
-                }}>
-                  <span style={{ 
-                    fontSize: '11px', 
-                    fontWeight: '700', 
-                    color: '#991b1b',
-                    textTransform: 'uppercase'
-                  }}>
-                    Active
-                  </span>
-                </div>
-              )}
+              </span>
             </div>
           </div>
         ))}
