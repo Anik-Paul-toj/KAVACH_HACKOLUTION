@@ -172,22 +172,36 @@ router.post('/analyze', async (req: Request, res: Response): Promise<void> => {
     console.error('Error analyzing privacy policy:', error);
     
     let errorMessage = 'Failed to analyze privacy policy';
+    let statusCode = 500;
     
     if (error instanceof Error) {
-      if (error.message.includes('timeout')) {
+      if (error.message.includes('403') || error.message.includes('Access denied')) {
+        errorMessage = `Website blocks automated access. Please manually review the privacy policy.`;
+        statusCode = 403;
+      } else if (error.message.includes('404') || error.message.includes('not found')) {
+        errorMessage = 'Privacy policy not found on this website';
+        statusCode = 404;
+      } else if (error.message.includes('429') || error.message.includes('Rate limited')) {
+        errorMessage = 'Too many requests - please try again later';
+        statusCode = 429;
+      } else if (error.message.includes('timeout')) {
         errorMessage = 'Request timeout - the website took too long to respond';
+        statusCode = 408;
       } else if (error.message.includes('ENOTFOUND')) {
         errorMessage = 'Website not found or not accessible';
-      } else if (error.message.includes('scrape')) {
-        errorMessage = 'Failed to extract privacy policy content';
-      } else if (error.message.includes('API')) {
-        errorMessage = 'AI analysis service temporarily unavailable';
+        statusCode = 404;
+      } else if (error.message.includes('content is too short')) {
+        errorMessage = 'Privacy policy content is insufficient for analysis';
+        statusCode = 400;
+      } else if (error.message.includes('quota') || error.message.includes('API')) {
+        errorMessage = 'AI analysis service temporarily unavailable - manual review recommended';
+        statusCode = 503;
       } else {
         errorMessage = error.message;
       }
     }
 
-    res.status(500).json({
+    res.status(statusCode).json({
       success: false,
       error: errorMessage
     } as AnalyzeResponse);

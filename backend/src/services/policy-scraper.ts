@@ -44,108 +44,175 @@ export class PolicyScraper {
   ];
 
   static async findPrivacyPolicyUrl(baseUrl: string): Promise<string | null> {
-    try {
-      const response = await axios.get(baseUrl, {
-        timeout: 15000,
-        maxRedirects: 5,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1',
-          'Sec-Fetch-Dest': 'document',
-          'Sec-Fetch-Mode': 'navigate',
-          'Sec-Fetch-Site': 'none'
-        }
-      });
+    const userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    ];
 
-      const $ = cheerio.load(response.data);
-      
-      // Method 1: Look for privacy policy links using enhanced selectors
-      const foundUrls = new Set<string>();
-      
-      for (const selector of this.PRIVACY_SELECTORS) {
-        try {
-          const links = $(selector);
-          for (let i = 0; i < links.length; i++) {
-            const link = $(links[i]);
-            const href = link.attr('href');
-            const text = link.text().toLowerCase().trim();
-            const title = link.attr('title')?.toLowerCase() || '';
-            const ariaLabel = link.attr('aria-label')?.toLowerCase() || '';
-            
-            if (href && this.isPrivacyRelated(text, href, title, ariaLabel)) {
-              const normalizedUrl = this.normalizeUrl(href, baseUrl);
-              if (normalizedUrl && this.isValidPrivacyUrl(normalizedUrl)) {
-                foundUrls.add(normalizedUrl);
+    for (let attempt = 0; attempt < userAgents.length; attempt++) {
+      try {
+        const response = await axios.get(baseUrl, {
+          timeout: 15000,
+          maxRedirects: 5,
+          headers: {
+            'User-Agent': userAgents[attempt],
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+
+        const $ = cheerio.load(response.data);
+        
+        // Method 1: Look for privacy policy links using enhanced selectors
+        const foundUrls = new Set<string>();
+        
+        for (const selector of this.PRIVACY_SELECTORS) {
+          try {
+            const links = $(selector);
+            for (let i = 0; i < links.length; i++) {
+              const link = $(links[i]);
+              const href = link.attr('href');
+              const text = link.text().toLowerCase().trim();
+              const title = link.attr('title')?.toLowerCase() || '';
+              const ariaLabel = link.attr('aria-label')?.toLowerCase() || '';
+              
+              if (href && this.isPrivacyRelated(text, href, title, ariaLabel)) {
+                const normalizedUrl = this.normalizeUrl(href, baseUrl);
+                if (normalizedUrl && this.isValidPrivacyUrl(normalizedUrl)) {
+                  foundUrls.add(normalizedUrl);
+                }
               }
             }
+          } catch (selectorError) {
+            // Continue with next selector if one fails
+            continue;
           }
-        } catch (selectorError) {
-          // Continue with next selector if one fails
+        }
+
+        // Method 2: Search all links with text matching
+        $('a').each((_, element) => {
+          const link = $(element);
+          const href = link.attr('href');
+          const text = link.text().toLowerCase().trim();
+          const title = link.attr('title')?.toLowerCase() || '';
+          
+          if (href && this.isPrivacyRelated(text, href, title)) {
+            const normalizedUrl = this.normalizeUrl(href, baseUrl);
+            if (normalizedUrl && this.isValidPrivacyUrl(normalizedUrl)) {
+              foundUrls.add(normalizedUrl);
+            }
+          }
+        });
+
+        // Method 3: Try common privacy policy URLs
+        const commonPaths = [
+          '/privacy', '/privacy-policy', '/privacy.html', '/privacy.php', '/privacy.aspx',
+          '/cookie-policy', '/data-policy', '/privacy-notice', '/privacy-statement',
+          '/legal/privacy', '/about/privacy', '/help/privacy', '/support/privacy',
+          '/terms-and-privacy', '/legal', '/policies', '/legal/privacy-policy',
+          '/en/privacy', '/us/privacy', '/privacy/', '/privacy-policy/',
+          '/page/privacy', '/static/privacy', '/docs/privacy'
+        ];
+
+        for (const path of commonPaths) {
+          try {
+            const testUrl = new URL(path, baseUrl).toString();
+            foundUrls.add(testUrl);
+          } catch {
+            continue;
+          }
+        }
+
+        // Method 4: Test URLs for accessibility
+        for (const url of Array.from(foundUrls)) {
+          try {
+            const testResponse = await axios.head(url, { 
+              timeout: 5000,
+              maxRedirects: 3,
+              headers: {
+                'User-Agent': userAgents[attempt],
+                'Accept': 'text/html,application/xhtml+xml',
+                'Cache-Control': 'no-cache'
+              }
+            });
+            if (testResponse.status === 200) {
+              return url;
+            }
+          } catch {
+            // Continue to next URL
+          }
+        }
+
+        // Return first found URL even if we couldn't verify it
+        return Array.from(foundUrls)[0] || null;
+
+      } catch (error: any) {
+        // Handle 403 specifically
+        if (error.response?.status === 403) {
+          console.log(`🚫 Access denied (403) for ${baseUrl} with User-Agent ${attempt + 1}, trying alternative...`);
+          
+          // If this is the last attempt, try fallback strategy
+          if (attempt === userAgents.length - 1) {
+            return this.tryFallbackPolicyDiscovery(baseUrl);
+          }
           continue;
         }
-      }
-
-      // Method 2: Search all links with text matching
-      $('a').each((_, element) => {
-        const link = $(element);
-        const href = link.attr('href');
-        const text = link.text().toLowerCase().trim();
-        const title = link.attr('title')?.toLowerCase() || '';
         
-        if (href && this.isPrivacyRelated(text, href, title)) {
-          const normalizedUrl = this.normalizeUrl(href, baseUrl);
-          if (normalizedUrl && this.isValidPrivacyUrl(normalizedUrl)) {
-            foundUrls.add(normalizedUrl);
-          }
+        // For other errors, try next user agent
+        if (attempt < userAgents.length - 1) {
+          continue;
         }
-      });
+        
+        console.error('Error finding privacy policy URL:', error.message);
+        return null;
+      }
+    }
 
-      // Method 3: Try common privacy policy URLs
+    return null;
+  }
+
+  private static async tryFallbackPolicyDiscovery(baseUrl: string): Promise<string | null> {
+    try {
+      // Try common privacy policy URLs without checking the main page
       const commonPaths = [
-        '/privacy', '/privacy-policy', '/privacy.html', '/privacy.php', '/privacy.aspx',
-        '/cookie-policy', '/data-policy', '/privacy-notice', '/privacy-statement',
-        '/legal/privacy', '/about/privacy', '/help/privacy', '/support/privacy',
-        '/terms-and-privacy', '/legal', '/policies', '/legal/privacy-policy',
-        '/en/privacy', '/us/privacy', '/privacy/', '/privacy-policy/',
-        '/page/privacy', '/static/privacy', '/docs/privacy'
+        '/privacy-policy', '/privacy', '/legal/privacy', '/privacy.html'
       ];
 
       for (const path of commonPaths) {
         try {
           const testUrl = new URL(path, baseUrl).toString();
-          foundUrls.add(testUrl);
+          
+          // Try with minimal headers to avoid detection
+          const testResponse = await axios.head(testUrl, { 
+            timeout: 5000,
+            headers: {
+              'User-Agent': 'curl/7.68.0',  // Very basic user agent
+              'Accept': '*/*'
+            }
+          });
+          
+          if (testResponse.status === 200) {
+            console.log(`✅ Found privacy policy via fallback: ${testUrl}`);
+            return testUrl;
+          }
         } catch {
           continue;
         }
       }
 
-      // Method 4: Test URLs for accessibility
-      for (const url of Array.from(foundUrls)) {
-        try {
-          const testResponse = await axios.head(url, { 
-            timeout: 5000,
-            maxRedirects: 3,
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-          });
-          if (testResponse.status === 200) {
-            return url;
-          }
-        } catch {
-          // Continue to next URL
-        }
-      }
-
-      // Return first found URL even if we couldn't verify it
-      return Array.from(foundUrls)[0] || null;
-
+      console.log(`⚠️  Could not find privacy policy for ${baseUrl} - all methods failed`);
+      return null;
     } catch (error) {
-      console.error('Error finding privacy policy URL:', error);
+      console.error('Fallback policy discovery failed:', error);
       return null;
     }
   }
@@ -167,7 +234,7 @@ export class PolicyScraper {
       
       // Exclude obvious non-privacy URLs
       const excludePatterns = [
-        '/login', '/register', '/signup', '/contact', '/about-us',
+         '/register', '/contact',
         '/careers', '/jobs', '/blog', '/news', '/press', '/investors'
       ];
       
@@ -201,7 +268,7 @@ export class PolicyScraper {
 
   private static async attemptScrape(url: string, attempt: number): Promise<ScrapedContent> {
     const configs = [
-      // Attempt 1: Standard scraping
+      // Attempt 1: Standard browser headers
       {
         timeout: 15000,
         headers: {
@@ -214,10 +281,11 @@ export class PolicyScraper {
           'Sec-Fetch-Dest': 'document',
           'Sec-Fetch-Mode': 'navigate',
           'Sec-Fetch-Site': 'none',
-          'Cache-Control': 'no-cache'
+          'Cache-Control': 'no-cache',
+          'DNT': '1'
         }
       },
-      // Attempt 2: Mobile user agent
+      // Attempt 2: Mobile user agent (less likely to be blocked)
       {
         timeout: 20000,
         headers: {
@@ -227,34 +295,55 @@ export class PolicyScraper {
           'Accept-Encoding': 'gzip, deflate'
         }
       },
-      // Attempt 3: Minimal headers
+      // Attempt 3: Minimal bot-friendly headers
       {
         timeout: 25000,
         headers: {
-          'User-Agent': 'KavachPrivacyBot/1.0 (+https://github.com/kavach-privacy)',
-          'Accept': 'text/html'
+          'User-Agent': 'curl/7.68.0',
+          'Accept': 'text/html',
+          'Accept-Language': 'en'
         }
       }
     ];
 
     const config = configs[attempt - 1];
-    const response = await axios.get(url, {
-      ...config,
-      maxRedirects: 5,
-      validateStatus: (status) => status < 400
-    });
+    
+    try {
+      const response = await axios.get(url, {
+        ...config,
+        maxRedirects: 5,
+        validateStatus: (status) => status < 400
+      });
 
-    const $ = cheerio.load(response.data);
-    
-    // Enhanced content extraction
-    const extractedContent = this.extractContent($, url);
-    
-    return {
-      text: this.cleanText(extractedContent.text),
-      url,
-      title: extractedContent.title,
-      lastModified: response.headers['last-modified']
-    };
+      const $ = cheerio.load(response.data);
+      
+      // Enhanced content extraction
+      const extractedContent = this.extractContent($, url);
+      
+      return {
+        text: this.cleanText(extractedContent.text),
+        url,
+        title: extractedContent.title,
+        lastModified: response.headers['last-modified']
+      };
+    } catch (error: any) {
+      // Handle 403 errors specifically
+      if (error.response?.status === 403) {
+        throw new Error(`Access denied (403) - Website blocks automated requests. Try manual review of privacy policy at: ${url}`);
+      }
+      
+      // Handle other HTTP errors
+      if (error.response?.status === 404) {
+        throw new Error(`Privacy policy not found (404) at: ${url}`);
+      }
+      
+      if (error.response?.status === 429) {
+        throw new Error(`Rate limited (429) - Too many requests to: ${url}`);
+      }
+      
+      // Re-throw for other errors
+      throw error;
+    }
   }
 
   private static extractContent($: cheerio.Root, url: string): { text: string; title: string } {
