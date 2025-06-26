@@ -1,4 +1,4 @@
-// Content script for detecting privacy policies and injecting tracking detection
+
 class ContentScript {
   private privacyPolicyUrls: string[] = [];
   private optedOutDomains: Set<string> = new Set();
@@ -27,14 +27,14 @@ class ContentScript {
   }
 
   private enforceOptOutState() {
-    // Block tracking scripts and pixels
+   
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
             const element = node as Element;
             
-            // Block tracking scripts
+           
             if (element.tagName === 'SCRIPT') {
               const script = element as HTMLScriptElement;
               const src = script.src?.toLowerCase() || '';
@@ -52,7 +52,7 @@ class ContentScript {
               }
             }
             
-            // Block tracking pixels
+           
             if (element.tagName === 'IMG') {
               const img = element as HTMLImageElement;
               const src = img.src?.toLowerCase() || '';
