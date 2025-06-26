@@ -1,20 +1,89 @@
 import { SiteData, TrackerData } from '../utils/types';
 import { TrustScoreCalculator, PrivacyPolicyAnalyzer, commonTrackers } from '../utils/privacy';
 
+// LRU Cache for SiteData with persistence
+class LRUCache<K, V> {
+  private maxEntries: number;
+  private map: Map<K, V>;
+
+  constructor(maxEntries: number) {
+    this.maxEntries = maxEntries;
+    this.map = new Map();
+  }
+
+  get(key: K): V | undefined {
+    if (!this.map.has(key)) return undefined;
+    const value = this.map.get(key)!;
+    // Move to end (most recently used)
+    this.map.delete(key);
+    this.map.set(key, value);
+    console.log(`[LRUCache] HIT for key:`, key);
+    return value;
+  }
+
+  set(key: K, value: V) {
+    if (this.map.has(key)) {
+      this.map.delete(key);
+      console.log(`[LRUCache] UPDATE for key:`, key);
+    } else if (this.map.size >= this.maxEntries) {
+      // Remove least recently used
+      const iterator = this.map.keys();
+      const lruKey = iterator.next().value;
+      if (lruKey !== undefined) {
+        this.map.delete(lruKey);
+        console.log(`[LRUCache] EVICTED least recently used key:`, lruKey);
+      }
+      console.log(`[LRUCache] SET (new, after eviction if needed) for key:`, key);
+    } else {
+      console.log(`[LRUCache] SET (new) for key:`, key);
+    }
+    this.map.set(key, value);
+  }
+
+  delete(key: K) {
+    this.map.delete(key);
+  }
+
+  has(key: K) {
+    return this.map.has(key);
+  }
+
+  keys() {
+    return Array.from(this.map.keys());
+  }
+
+  values() {
+    return Array.from(this.map.values());
+  }
+
+  entries() {
+    return Array.from(this.map.entries());
+  }
+
+  toJSON(): [K, V][] {
+    return Array.from(this.map.entries());
+  }
+
+  fromJSON(entries: [K, V][]) {
+    this.map = new Map(entries);
+  }
+}
+
 class BackgroundService {
   private siteData = new Map<string, SiteData>();
   private blockedRequests = new Map<string, number>();
   private privacyPolicyUrls = new Map<string, string[]>();
   private readonly MAX_SITE_DATA_ENTRIES = 100; // Prevent memory bloat
   private readonly MAX_TRACKERS_PER_SITE = 50; // Limit trackers per site
+  private lruCache = new LRUCache<string, { data: SiteData, timestamp: number }>(100); // 100 entries max
 
   constructor() {
     this.setupRequestBlocking();
     this.setupTabListeners();
     this.setupMessageListeners();
-    
-    // Clean up old data periodically
+    this.loadCacheFromStorage();
     setInterval(() => this.cleanupOldData(), 300000); // Every 5 minutes
+    setInterval(() => this.saveCacheToStorage(), 60000); // Save cache every 1 min
   }
 
   private safeParseURL(url: string): URL | null {
@@ -29,7 +98,9 @@ class BackgroundService {
   private getDomainFromURL(url: string): string | null {
     const parsedUrl = this.safeParseURL(url);
     return parsedUrl ? parsedUrl.hostname : null;
-  }  private setupRequestBlocking() {
+  }
+
+  private setupRequestBlocking() {
     // Monitor web requests to track third-party requests
     chrome.webRequest.onBeforeRequest.addListener(
       (details) => {
@@ -47,7 +118,9 @@ class BackgroundService {
       { urls: ['<all_urls>'] },
       ['requestBody']
     );
-  }  private setupTabListeners() {
+  }
+
+  private setupTabListeners() {
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       if (changeInfo.status === 'complete' && tab.url && this.isValidHttpUrl(tab.url)) {
         this.initializeSiteData(tab.url);
@@ -73,7 +146,9 @@ class BackgroundService {
     } catch {
       return false;
     }
-  }  private trackThirdPartyRequest(sourceDomain: string, trackerDomain: string, requestType: string) {
+  }
+
+  private trackThirdPartyRequest(sourceDomain: string, trackerDomain: string, requestType: string) {
     try {
       let siteData = this.siteData.get(sourceDomain);
       if (!siteData) {
@@ -149,7 +224,9 @@ class BackgroundService {
         dataType: 'user_data'
       });
     }
-  }  private initializeSiteData(url: string) {
+  }
+
+  private initializeSiteData(url: string) {
     const domain = this.getDomainFromURL(url);
     if (!domain) return;
     
@@ -180,17 +257,29 @@ class BackgroundService {
       };
       this.siteData.set(domain, newSiteData);
     }
-  }  async getSiteData(url: string): Promise<SiteData | null> {
+  }
+
+  async getSiteData(url: string): Promise<SiteData | null> {
     const domain = this.getDomainFromURL(url);
     if (!domain) return null;
-    
-    // Ensure site data exists for this domain
+    // Check LRU cache first (freshness: 24h)
+    const cached = this.lruCache.get(domain);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < 24 * 60 * 60 * 1000)) {
+      return cached.data;
+    }
+    // Not cached or stale, fetch/analyze as usual
     if (!this.siteData.has(domain)) {
       this.initializeSiteData(url);
     }
-    
-    return this.siteData.get(domain) || null;
+    const data = this.siteData.get(domain) || null;
+    if (data) {
+      this.lruCache.set(domain, { data, timestamp: now });
+      this.saveCacheToStorage();
+    }
+    return data;
   }
+
   async toggleTrackerBlocking(enabled: boolean) {
     // Toggle declarative net request rules
     const ruleIds = [1, 2, 3, 4, 5]; // IDs from rules.json
@@ -205,6 +294,7 @@ class BackgroundService {
       });
     }
   }
+
   private setupMessageListeners() {
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       switch (request.action) {
@@ -264,25 +354,36 @@ class BackgroundService {
       }
     });
   }
+
   private storePrivacyPolicyUrls(siteUrl: string, policyUrls: string[]) {
     const domain = this.getDomainFromURL(siteUrl);
     if (domain && Array.isArray(policyUrls)) {
       this.privacyPolicyUrls.set(domain, policyUrls);
     }
   }
+
   async analyzePrivacyPolicy(siteUrl: string): Promise<any> {
     const domain = this.getDomainFromURL(siteUrl);
     if (!domain) {
       return { error: 'Invalid URL provided' };
     }
-    
+    // Check LRU cache for privacyAnalysis freshness (24h)
+    const cached = this.lruCache.get(domain);
+    const now = Date.now();
+    if (cached && cached.data.privacyAnalysis && (now - (new Date(cached.data.privacyAnalysis.lastAnalyzed || 0).getTime()) < 24 * 60 * 60 * 1000)) {
+      return cached.data.privacyAnalysis;
+    }
+    // Not cached or stale, call API
     try {
-      // Use the PrivacyPolicyAnalyzer from utils to call the backend API
       const analysis = await PrivacyPolicyAnalyzer.analyzePolicy(siteUrl);
-      
       // Store the analysis in site data
-      const siteData = this.siteData.get(domain);
-      if (siteData && analysis) {
+      const siteData = this.siteData.get(domain) || {
+        url: siteUrl,
+        trustScore: 100,
+        trackers: [],
+        dataFlow: { nodes: [], edges: [] }
+      };
+      if (analysis) {
         const processedAnalysis = {
           score: Math.max(0, Math.min(100, analysis.score || 50)),
           risks: Array.isArray(analysis.risks) ? analysis.risks.slice(0, 10) : [],
@@ -294,18 +395,15 @@ class BackgroundService {
           analysisDepth: analysis.analysisDepth || 'AI Analysis',
           lastAnalyzed: new Date().toISOString()
         };
-        
         siteData.privacyAnalysis = processedAnalysis;
         this.siteData.set(domain, siteData);
-        
-        // Return the processed analysis
+        this.lruCache.set(domain, { data: siteData, timestamp: now });
+        this.saveCacheToStorage();
         return processedAnalysis;
       }
-      
       return analysis;
-      
     } catch (error) {
-      // Return fallback analysis for any errors
+      // Fallback
       const fallbackAnalysis = {
         score: 50,
         risks: ['Unable to analyze privacy policy - service temporarily unavailable'],
@@ -317,18 +415,16 @@ class BackgroundService {
         analysisDepth: 'Failed',
         lastAnalyzed: new Date().toISOString()
       };
-      
-      // Store fallback analysis
       const siteData = this.siteData.get(domain);
       if (siteData) {
         siteData.privacyAnalysis = fallbackAnalysis;
         this.siteData.set(domain, siteData);
+        this.lruCache.set(domain, { data: siteData, timestamp: now });
+        this.saveCacheToStorage();
       }
-      
       return fallbackAnalysis;
     }
   }
-
 
   async handleFingerprinting(tabId: number) {
     try {
@@ -546,6 +642,29 @@ class BackgroundService {
         siteData.trustScore = TrustScoreCalculator.calculateScore(siteData.trackers);
       }
     });
+  }
+
+  // Load LRU cache from chrome.storage.local
+  private async loadCacheFromStorage() {
+    try {
+      const result = await chrome.storage.local.get(['kavachSiteDataCache']);
+      if (result.kavachSiteDataCache) {
+        this.lruCache.fromJSON(result.kavachSiteDataCache);
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  // Save LRU cache to chrome.storage.local
+  private async saveCacheToStorage() {
+    try {
+      await chrome.storage.local.set({
+        kavachSiteDataCache: this.lruCache.toJSON()
+      });
+    } catch (e) {
+      // Ignore
+    }
   }
 }
 
