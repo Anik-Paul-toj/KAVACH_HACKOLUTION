@@ -773,4 +773,23 @@ function runFingerprintJS(apiKey: string) {
 
 const backgroundService = new BackgroundService();
 
+// Gemini API proxy for content scripts/popup (CSP bypass)
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'getFriendlyTrackerName' && request.domain) {
+    fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyBrXnnwn0--IEWqrNS4V4HPqlAuTr3TB9k`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `Describe the service or company behind the domain \"${request.domain}\" in a user-friendly way. If unknown, say \"Unknown third-party service\".` }] }]
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        sendResponse({ result: data?.candidates?.[0]?.content?.parts?.[0]?.text || "Unknown third-party service" });
+      })
+      .catch(() => sendResponse({ result: "Unknown third-party service" }));
+    return true; // Keep the message channel open for async response
+  }
+});
+
 export {};

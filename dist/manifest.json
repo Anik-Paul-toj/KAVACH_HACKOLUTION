@@ -19,7 +19,8 @@
     "browsingData"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "https://generativelanguage.googleapis.com/"
   ],
   "background": {
     "service_worker": "background.js"
@@ -56,6 +57,6 @@
     ]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://kavach-hackolution.onrender.com https://*.onrender.com http://localhost:3000"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://kavach-hackolution.onrender.com https://*.onrender.com http://localhost:3000 https://generativelanguage.googleapis.com"
   }
 }

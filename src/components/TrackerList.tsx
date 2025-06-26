@@ -6,7 +6,8 @@ interface TrackerListProps {
   onBlock?: () => void;
 }
 
-const TrackerList: React.FC<TrackerListProps> = ({ trackers, onBlock }) => {  if (trackers.length === 0) {
+const TrackerList: React.FC<TrackerListProps> = ({ trackers, onBlock }) => {
+  if (trackers.length === 0) {
     return (
       <div className="empty-state" style={{ textAlign: 'center', padding: '32px' }}>
         <p style={{ fontSize: '16px', fontWeight: '600', color: '#64748b' }}>No trackers detected</p>
