@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { SiteData } from '../utils/types';
 import { OptOutManager } from '../utils/privacy';
@@ -863,7 +862,7 @@ function comprehensiveOptOutCleanup(domain: string) {
       );
       
       if (loginIndicators.length > 0) {
-        console.log('� User appears to be logged in, attempting gentle session cleanup...');
+        console.log('🚪 User appears to be logged in, attempting gentle session cleanup...');
         
         // Only click logout if it's easily accessible (don't force through menus)
         logoutSelectors.forEach(selector => {
@@ -969,6 +968,7 @@ const App: React.FC = () => {
   const [blockingEnabled, setBlockingEnabled] = useState(true);
   const [analyzingPolicy, setAnalyzingPolicy] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [clearCacheMessage, setClearCacheMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadCurrentSiteData();
@@ -1266,6 +1266,17 @@ const App: React.FC = () => {
     }
   };
 
+  const handleClearCache = async () => {
+    try {
+      await chrome.runtime.sendMessage({ action: 'clearKavachCache' });
+      setClearCacheMessage('Kavach cache cleared!');
+      setTimeout(() => setClearCacheMessage(null), 3000);
+    } catch (error) {
+      setClearCacheMessage('Failed to clear cache.');
+      setTimeout(() => setClearCacheMessage(null), 3000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="app">
@@ -1338,6 +1349,9 @@ const App: React.FC = () => {
               <button onClick={handleDebugInfo} className="debug-button">
                 🐛 Debug Info
               </button>
+              <button onClick={handleClearCache} className="debug-button" style={{ marginLeft: 8 }}>
+                🧹 Clear Kavach Cache
+              </button>
               {debugInfo && (
                 <div className="debug-info">
                   <p><strong>Tracked Domains:</strong> {debugInfo.totalSites}</p>
@@ -1348,6 +1362,11 @@ const App: React.FC = () => {
                       <pre>{JSON.stringify(debugInfo.siteDataSnapshot, null, 2)}</pre>
                     </details>
                   )}
+                </div>
+              )}
+              {clearCacheMessage && (
+                <div className="debug-info" style={{ color: 'green', marginTop: 8 }}>
+                  {clearCacheMessage}
                 </div>
               )}
             </div>

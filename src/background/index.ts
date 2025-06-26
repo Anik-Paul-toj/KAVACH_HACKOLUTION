@@ -348,6 +348,14 @@ class BackgroundService {
             .catch((error: any) => sendResponse({ success: false, error: error.message }));
           return true;
 
+        case 'clearKavachCache':
+          this.lruCache = new LRUCache<string, { data: SiteData, timestamp: number }>(100);
+          this.siteData.clear();
+          chrome.storage.local.remove('kavachSiteDataCache', () => {
+            sendResponse({ success: true });
+          });
+          return true;
+
         default:
           sendResponse({ error: 'Unknown action' });
           return false;
