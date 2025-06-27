@@ -255,7 +255,7 @@ const PrivacyAnalysis: React.FC<PrivacyAnalysisProps> = ({ analysis }) => {
                   fontSize: '16px', 
                   flexShrink: 0,
                   marginTop: '2px'
-                }}>•</span>
+                }}>*</span>
                 <span style={{ color: '#7f1d1d', fontWeight: '500' }}>{risk}</span>
               </div>
             ))}

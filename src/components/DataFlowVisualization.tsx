@@ -51,7 +51,7 @@ const DataFlowVisualization: React.FC<DataFlowVisualizationProps> = ({ dataFlow 
           <div className="flow-section arrow-section">
             <div className="flow-arrow">
               <div className="arrow-line"></div>
-              <div className="arrow-head">▶</div>
+              <div className="arrow-head">&gt;</div>
             </div>
           </div>
         )}

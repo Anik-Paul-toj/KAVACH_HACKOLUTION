@@ -3,6 +3,15 @@ import ErrorIcon from '@mui/icons-material/Error';
 import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import HelpIcon from '@mui/icons-material/Help';
+import WarningIcon from '@mui/icons-material/Warning';
+import ReportProblemIcon from '@mui/icons-material/ReportProblem';
+import CircleIcon from '@mui/icons-material/Circle';
+import ChangeHistoryIcon from '@mui/icons-material/ChangeHistory';
+import CheckIcon from '@mui/icons-material/Check';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 interface FingerprintData {
   visitorId: string;
@@ -76,14 +85,50 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = () => {
   }, []);
 
   const getUniquenessLevel = (score?: number) => {
-    if (!score) return { level: 'Unknown', color: '#6b7280', icon: '❓' };
+    if (!score) return { 
+      level: 'Unknown', 
+      color: '#6b7280', 
+      icon: <HelpIcon sx={{ fontSize: 16 }} />,
+      risk: 'Cannot assess privacy risk',
+      action: 'Try refreshing or visit different websites to get accurate data'
+    };
     
     const percentage = score * 100;
-    if (percentage >= 99) return { level: 'Highly Unique', color: '#dc2626', icon: '🚨' };
-    if (percentage >= 95) return { level: 'Very Unique', color: '#ea580c', icon: '⚠️' };
-    if (percentage >= 85) return { level: 'Unique', color: '#d97706', icon: '🔶' };
-    if (percentage >= 70) return { level: 'Somewhat Unique', color: '#ca8a04', icon: '🟡' };
-    return { level: 'Common', color: '#16a34a', icon: '✅' };
+    if (percentage >= 99) return { 
+      level: 'Highly Unique', 
+      color: '#dc2626', 
+      icon: <ReportProblemIcon sx={{ fontSize: 16 }} />,
+      risk: 'Very easy to track across websites',
+      action: 'Use private browsing, disable JavaScript, or use Tor browser'
+    };
+    if (percentage >= 95) return { 
+      level: 'Very Unique', 
+      color: '#ea580c', 
+      icon: <WarningIcon sx={{ fontSize: 16 }} />,
+      risk: 'Easy to track across most websites',
+      action: 'Change browser settings, disable location services, use VPN'
+    };
+    if (percentage >= 85) return { 
+      level: 'Unique', 
+      color: '#d97706', 
+      icon: <ChangeHistoryIcon sx={{ fontSize: 16 }} />,
+      risk: 'Trackable by many websites',
+      action: 'Consider using privacy-focused browser or extensions'
+    };
+    if (percentage >= 70) return { 
+      level: 'Somewhat Unique', 
+      color: '#ca8a04', 
+      icon: <CircleIcon sx={{ fontSize: 16 }} />,
+      risk: 'Some tracking possible',
+      action: 'Good privacy level, minor tweaks can improve it further'
+    };
+    return { 
+      level: 'Common', 
+      color: '#16a34a', 
+      icon: <CheckIcon sx={{ fontSize: 16 }} />,
+      risk: 'Hard to track - excellent privacy',
+      action: 'Keep current browser settings and privacy practices'
+    };
   };
 
   const uniqueness = getUniquenessLevel(fpData?.confidence?.score);
@@ -92,7 +137,7 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = () => {
     <div className="section">
       <div className="section-header">
         <div className="section-title">
-          🔍 Browser Fingerprint
+          Browser Fingerprint
         </div>
         <button 
           className="refresh-button"
@@ -100,7 +145,7 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = () => {
           disabled={loading}
           title="Refresh fingerprint data"
         >
-          {loading ? '⟳' : '↻'}
+          <RefreshIcon sx={{ fontSize: 16 }} />
         </button>
       </div>
 
@@ -134,13 +179,26 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = () => {
             </div>
 
             <div className="fingerprint-metric">
-              <div className="metric-label">Uniqueness</div>
+              <div className="metric-label">Privacy Risk</div>
+              <div className="metric-value" style={{ color: uniqueness.color }}>
+                {loading ? (
+                  <div className="loading-placeholder">Loading...</div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="uniqueness-icon">{uniqueness.icon}</span>
+                    <span className="uniqueness-text">{uniqueness.risk}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="fingerprint-metric">
+              <div className="metric-label">Uniqueness Score</div>
               <div className="metric-value uniqueness" style={{ color: uniqueness.color }}>
                 {loading ? (
                   <div className="loading-placeholder">Loading...</div>
                 ) : (
                   <>
-                    <span className="uniqueness-icon">{uniqueness.icon}</span>
                     <span className="uniqueness-text">
                       {fpData?.confidence?.score ? 
                         `${(fpData.confidence.score * 100).toFixed(1)}% (${uniqueness.level})` : 
@@ -175,15 +233,6 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = () => {
                 </div>
               </div>
             )}
-
-            {fpData && fpData.lastSeen && (
-              <div className="fingerprint-metric">
-                <div className="metric-label">Last Seen</div>
-                <div className="metric-value" style={{ fontSize: '12px', color: '#64748b' }}>
-                  {new Date(fpData.lastSeen).toLocaleDateString()}
-                </div>
-              </div>
-            )}
           </div>
 
           {fpData && !loading && (
@@ -192,29 +241,19 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = () => {
                 className="toggle-details"
                 onClick={() => setShowDetails(!showDetails)}
               >
-                {showDetails ? '▼' : '▶'} {showDetails ? 'Hide' : 'Show'} Details
+                {showDetails ? <ExpandMoreIcon sx={{ fontSize: 16 }} /> : <ChevronRightIcon sx={{ fontSize: 16 }} />}
+                <span style={{ marginLeft: '4px' }}>{showDetails ? 'Hide' : 'Show'} Details</span>
               </button>
               
               {showDetails && (
                 <div className="details-content">
-                  {fpData.lastSeen && (
-                    <div className="detail-item">
-                      <span className="detail-label">Last Seen:</span>
-                      <span className="detail-value">
-                        {new Date(fpData.lastSeen).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {fpData.timestamp && (
-                    <div className="detail-item">
-                      <span className="detail-label">Generated:</span>
-                      <span className="detail-value">
-                        {new Date(fpData.timestamp).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  
+                  <div className="detail-item">
+                    <span className="detail-label">Full Visitor ID:</span>
+                    <span className="detail-value visitor-id-full">
+                      {fpData.visitorId}
+                    </span>
+                  </div>
+
                   {fpData.bot && (
                     <div className="detail-item">
                       <span className="detail-label">Bot Detection:</span>
@@ -238,29 +277,24 @@ const FingerprintInfo: React.FC<FingerprintInfoProps> = () => {
                       </span>
                     </div>
                   )}
-
-                  <div className="detail-item">
-                    <span className="detail-label">Full Visitor ID:</span>
-                    <span className="detail-value visitor-id-full">
-                      {fpData.visitorId}
-                    </span>
-                  </div>
-
-                  <details className="raw-data">
-                    <summary>Raw Data</summary>
-                    <pre className="raw-data-content">
-                      {JSON.stringify(fpData, null, 2)}
-                    </pre>
-                  </details>
                 </div>
               )}
             </div>
           )}
 
           <div className="fingerprint-info">
+            <div className="privacy-recommendation">
+              <div className="recommendation-title">
+                Privacy Recommendation
+              </div>
+              <div className="recommendation-text">
+                {uniqueness.action}
+              </div>
+            </div>
+            
             <div className="info-text">
               Browser fingerprinting tracks you by analyzing unique characteristics of your device and browser. 
-              Higher uniqueness scores indicate easier tracking.
+              Higher uniqueness scores indicate easier tracking across websites.
             </div>
           </div>
         </div>

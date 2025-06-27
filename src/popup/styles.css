@@ -1156,48 +1156,109 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* Debug section styles */
 .debug-section {
-  margin-top: 0;
-  padding: 14px 16px;
-  border-top: 1px solid #e2e8f0;
+  margin-top: 16px;
+  padding: 16px;
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-  flex-shrink: 0;
-  width: 100%;
-  box-sizing: border-box;
-  position: relative;
-  z-index: 1;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.debug-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .debug-button {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 1px solid #e2e8f0;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
+  background: linear-gradient(135deg, #007E36 0%, #005a26 100%);
+  border: none;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  width: 100%;
+  flex: 1;
   transition: all 0.3s ease;
-  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: 'Titillium Web', sans-serif;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 126, 54, 0.2);
 }
 
 .debug-button:hover {
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-  border-color: #cbd5e1;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #005a26 0%, #004a1f 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 126, 54, 0.3);
+}
+
+.debug-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 126, 54, 0.2);
+}
+
+.debug-icon {
+  font-size: 16px !important;
 }
 
 .debug-info {
   margin-top: 12px;
   font-size: 11px;
   color: #64748b;
-  padding: 8px;
-  background: rgba(248, 250, 252, 0.5);
-  border-radius: 6px;
+  padding: 12px;
+  background: rgba(248, 250, 252, 0.7);
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
+  line-height: 1.5;
+}
+
+.debug-info.success-message {
+  color: #059669;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.success-icon {
+  font-size: 16px !important;
+  color: #10b981;
+}
+
+.debug-info details {
+  margin-top: 8px;
+}
+
+.debug-info summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #475569;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.debug-info summary:hover {
+  color: #007E36;
+}
+
+.debug-info pre {
+  margin-top: 8px;
+  padding: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 10px;
+  overflow-x: auto;
+  color: #475569;
+  line-height: 1.4;
 }
 
 .debug-info details {
@@ -1644,4 +1705,157 @@ div + .tracker-list {
   color: #475569;
   line-height: 1.4;
   font-style: italic;
+}
+
+/* Enhanced Fingerprint Privacy Information Styles */
+.privacy-recommendation {
+  margin: 16px 0;
+  padding: 12px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+}
+
+.recommendation-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #92400e;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.recommendation-text {
+  font-size: 12px;
+  color: #78350f;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.tracking-factors {
+  margin: 16px 0;
+  padding: 12px;
+  background: rgba(239, 246, 255, 0.8);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+
+.factors-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.factors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.factor-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(191, 219, 254, 0.5);
+}
+
+.factor-item:last-child {
+  border-bottom: none;
+}
+
+.factor-name {
+  font-size: 12px;
+  color: #1e40af;
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 100px;
+}
+
+.factor-value {
+  font-size: 11px;
+  color: #64748b;
+  text-align: right;
+  line-height: 1.3;
+}
+
+.privacy-tips {
+  margin: 16px 0;
+  padding: 12px;
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  border: 1px solid #86efac;
+  border-radius: 8px;
+}
+
+.tips-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #166534;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tip-item {
+  font-size: 12px;
+  color: #166534;
+  line-height: 1.4;
+  padding: 2px 0;
+}
+
+/* Enhance existing fingerprint info styles */
+.fingerprint-info {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.info-text {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+  padding: 12px;
+  background: rgba(248, 250, 252, 0.8);
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-top: 16px;
+}
+
+/* Privacy risk level styling */
+.metric-value.privacy-risk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+/* Responsive design for smaller popup widths */
+@media (max-width: 400px) {
+  .factor-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .factor-name {
+    min-width: auto;
+  }
+  
+  .factor-value {
+    text-align: left;
+  }
 }

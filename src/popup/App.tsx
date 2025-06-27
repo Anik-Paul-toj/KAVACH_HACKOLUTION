@@ -7,12 +7,15 @@ import PrivacyAnalysis from '../components/PrivacyAnalysis';
 import DataFlowVisualization from '../components/DataFlowVisualization';
 import ActionButtons from '../components/ActionButtons';
 import FingerprintInfo from '../components/FingerprintInfo';
+import BugReportIcon from '@mui/icons-material/BugReport';
+import ClearAllIcon from '@mui/icons-material/ClearAll';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 
 
 // Comprehensive opt-out cleanup function that runs in the page context
 function comprehensiveOptOutCleanup(domain: string) {
-  console.log('🧹 Starting comprehensive cleanup for:', domain);
+  console.log('Starting comprehensive cleanup for:', domain);
   
   // CSP-Safe: Check if we can execute scripts (CSP bypass detection)
   let cspSafe = true;
@@ -29,7 +32,7 @@ function comprehensiveOptOutCleanup(domain: string) {
     delete (window as any).kavachCSPTest;
   } catch (e) {
     cspSafe = false;
-    console.warn('⚠️ CSP restrictions detected, using limited cleanup mode');
+    console.warn('CSP restrictions detected, using limited cleanup mode');
   }
   
   try {
@@ -218,7 +221,7 @@ function comprehensiveOptOutCleanup(domain: string) {
           elements.forEach(element => {
             if (element && typeof (element as HTMLElement).click === 'function') {
               (element as HTMLElement).click();
-              console.log('🖱️ Clicked opt-out element:', selector);
+              console.log('Clicked opt-out element:', selector);
             }
           });
         } catch (e) {
@@ -246,7 +249,7 @@ function comprehensiveOptOutCleanup(domain: string) {
         if (optOutTexts.some(optText => text.includes(optText))) {
           try {
             (element as HTMLElement).click();
-            console.log('🖱️ Clicked text-based opt-out:', text.substring(0, 50));
+            console.log('Clicked text-based opt-out:', text.substring(0, 50));
           } catch (e) {
             // Continue
           }
@@ -256,7 +259,7 @@ function comprehensiveOptOutCleanup(domain: string) {
 
     // YouTube/Google-specific consent handling
     const handleYouTubeConsent = () => {
-      console.log('🎥 Handling YouTube-specific consent...');
+      console.log('Handling YouTube-specific consent...');
       
       // Enhanced authentication cookie clearing to prevent re-login (but allow manual re-login)
       const authCookies = [
@@ -301,7 +304,7 @@ function comprehensiveOptOutCleanup(domain: string) {
         // Set temporary logged-out state (short duration)
         sessionStorage.setItem('kavach-logout-timestamp', Date.now().toString());
         
-        console.log('🎥 Cleared YouTube session storage (preserving login capability)');
+        console.log('Cleared YouTube session storage (preserving login capability)');
       } catch (e) {
         console.warn('Could not clear YouTube session storage:', e);
       }
@@ -334,12 +337,12 @@ function comprehensiveOptOutCleanup(domain: string) {
           setTimeout(() => {
             try {
               if ((window as any).kavachOriginalYtConfig) {
-                console.log('🎥 Restoring YouTube login capability after 10 seconds...');
+                console.log('Restoring YouTube login capability after 10 seconds...');
                 // Don't restore the logged-in state, just remove blocks
                 (window as any).ytcfg.set('SESSION_INDEX', (window as any).kavachOriginalYtConfig.SESSION_INDEX);
                 delete (window as any).kavachOriginalYtConfig;
                 sessionStorage.removeItem('kavach-logout-timestamp');
-                console.log('🎥 YouTube login capability restored');
+                console.log('YouTube login capability restored');
               }
             } catch (e) {
               console.warn('Could not restore YouTube config:', e);
@@ -412,7 +415,7 @@ function comprehensiveOptOutCleanup(domain: string) {
                   if (isVisible) {
                     (element as HTMLElement).click();
                     buttonsClicked++;
-                    console.log(`🎥 Clicked YouTube element ${index + 1}:`, selector);
+                    console.log(`Clicked YouTube element ${index + 1}:`, selector);
                     
                     // Additional event triggering for React components
                     const events = ['mousedown', 'mouseup', 'focus'];
@@ -446,14 +449,14 @@ function comprehensiveOptOutCleanup(domain: string) {
             try {
               (element as HTMLElement).click();
               buttonsClicked++;
-              console.log('🎥 Clicked YouTube text button:', (text || ariaLabel).substring(0, 30));
+              console.log('Clicked YouTube text button:', (text || ariaLabel).substring(0, 30));
             } catch (e) {
               // Continue
             }
           }
         });
         
-        console.log(`🎥 YouTube: Clicked ${buttonsClicked} consent buttons`);
+        console.log(`YouTube: Clicked ${buttonsClicked} consent buttons`);
         return buttonsClicked;
       };
       
@@ -462,7 +465,7 @@ function comprehensiveOptOutCleanup(domain: string) {
       attempts.forEach((delay, index) => {
         setTimeout(() => {
           const clicks = clickYouTubeButtons();
-          console.log(`🎥 YouTube attempt ${index + 1}: ${clicks} clicks`);
+          console.log(`YouTube attempt ${index + 1}: ${clicks} clicks`);
         }, delay);
       });
       
@@ -481,7 +484,7 @@ function comprehensiveOptOutCleanup(domain: string) {
           });
           
           if (hasVisibleAccount) {
-            console.log('🎥 User appears logged in, attempting gentle logout...');
+            console.log('User appears logged in, attempting gentle logout...');
             
             accountButtons.forEach(button => {
               if (button) {
@@ -502,7 +505,7 @@ function comprehensiveOptOutCleanup(domain: string) {
                         
                         if (isSignOutVisible) {
                           (signOut as HTMLElement).click();
-                          console.log('🎥 Triggered gentle YouTube logout');
+                          console.log('Triggered gentle YouTube logout');
                         }
                       }
                     });
@@ -511,7 +514,7 @@ function comprehensiveOptOutCleanup(domain: string) {
               }
             });
           } else {
-            console.log('🎥 User not visibly logged in, skipping logout attempt');
+            console.log('User not visibly logged in, skipping logout attempt');
           }
         } catch (e) {
           console.warn('Could not attempt YouTube logout:', e);
@@ -521,7 +524,7 @@ function comprehensiveOptOutCleanup(domain: string) {
 
     // Instagram/Meta-specific consent handling
     const handleInstagramConsent = () => {
-      console.log('📷 Handling Instagram-specific consent...');
+      console.log('Handling Instagram-specific consent...');
       
       // Enhanced Instagram-specific session cookies
       const instaCookies = [
@@ -617,7 +620,7 @@ function comprehensiveOptOutCleanup(domain: string) {
                     element.dispatchEvent(enterEvent);
                     
                     buttonsClicked++;
-                    console.log(`🖱️ Clicked Instagram element ${index + 1}:`, selector);
+                    console.log(`Clicked Instagram element ${index + 1}:`, selector);
                   } catch (clickError) {
                     console.warn('Click failed for element:', selector, clickError);
                   }
@@ -665,7 +668,7 @@ function comprehensiveOptOutCleanup(domain: string) {
               if (isVisible) {
                 (element as HTMLElement).click();
                 buttonsClicked++;
-                console.log('🖱️ Clicked Instagram text button:', text.substring(0, 40));
+                console.log('Clicked Instagram text button:', text.substring(0, 40));
                 
                 // Trigger additional events for React components
                 const events = ['mousedown', 'mouseup', 'click', 'focus', 'change'];
@@ -884,13 +887,13 @@ function comprehensiveOptOutCleanup(domain: string) {
           });
         });
       } else {
-        console.log('🔍 User not logged in, skipping logout attempt');
+        console.log('User not logged in, skipping logout attempt');
       }
     }, 2000);
     
     // Show comprehensive notification with CSP status
     const notification = document.createElement('div');
-    const cspStatus = cspSafe ? '✅ Full cleanup mode' : '⚠️ Limited by CSP';
+    const cspStatus = cspSafe ? 'Full cleanup mode' : 'Limited by CSP';
     notification.innerHTML = `
       <div style="
         position: fixed;
@@ -911,19 +914,19 @@ function comprehensiveOptOutCleanup(domain: string) {
         animation: slideIn 0.3s ease-out;
       ">
         <div style="display: flex; align-items: center; margin-bottom: 8px;">
-          <span style="font-size: 20px; margin-right: 10px;">🛡️</span>
+          <span style="font-size: 20px; margin-right: 10px;">SHIELD</span>
           <strong>Kavach Privacy Reset Complete</strong>
         </div>
         <div style="font-size: 13px; opacity: 0.9; line-height: 1.4;">
           ${cspStatus}<br>
-          ✅ All cookies cleared (${universalOptOutCookies.length} types)<br>
-          ✅ Storage completely wiped<br>
-          ✅ Tracking scripts disabled<br>
-          ✅ Consent management bypassed<br>
-          ✅ Session gently terminated<br>
-          ✅ Anti-tracking measures activated<br>
-          ℹ️ You can log back in normally when desired
-          ${!cspSafe ? '<br>⚠️ Some features limited by Content Security Policy' : ''}
+          ✓ All cookies cleared (${universalOptOutCookies.length} types)<br>
+          ✓ Storage completely wiped<br>
+          ✓ Tracking scripts disabled<br>
+          ✓ Consent management bypassed<br>
+          ✓ Session gently terminated<br>
+          ✓ Anti-tracking measures activated<br>
+          INFO: You can log back in normally when desired
+          ${!cspSafe ? '<br>WARNING: Some features limited by Content Security Policy' : ''}
         </div>
       </div>
       <style>
@@ -1342,12 +1345,16 @@ const App: React.FC = () => {
 
             {/* Debug Section */}
             <div className="debug-section">
-              <button onClick={handleDebugInfo} className="debug-button">
-                🐛 Debug Info
-              </button>
-              <button onClick={handleClearCache} className="debug-button" style={{ marginLeft: 8 }}>
-                🧹 Clear Kavach Cache
-              </button>
+              <div className="debug-buttons">
+                <button onClick={handleDebugInfo} className="debug-button">
+                  <BugReportIcon className="debug-icon" />
+                  <span>Debug Info</span>
+                </button>
+                <button onClick={handleClearCache} className="debug-button">
+                  <ClearAllIcon className="debug-icon" />
+                  <span>Clear Cache</span>
+                </button>
+              </div>
               {debugInfo && (
                 <div className="debug-info">
                   <p><strong>Tracked Domains:</strong> {debugInfo.totalSites}</p>
@@ -1361,7 +1368,8 @@ const App: React.FC = () => {
                 </div>
               )}
               {clearCacheMessage && (
-                <div className="debug-info" style={{ color: 'green', marginTop: 8 }}>
+                <div className="debug-info success-message">
+                  <CheckCircleIcon className="success-icon" />
                   {clearCacheMessage}
                 </div>
               )}
