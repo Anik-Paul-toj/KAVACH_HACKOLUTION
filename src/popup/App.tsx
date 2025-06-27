@@ -898,7 +898,7 @@ function comprehensiveOptOutCleanup(domain: string) {
       <div style="
         position: fixed;
         top: 20px;
-        right: 20px;
+        left: 20px;
         z-index: 999999;
         background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
         color: white;
@@ -911,10 +911,10 @@ function comprehensiveOptOutCleanup(domain: string) {
         border: 2px solid rgba(254, 202, 202, 0.3);
         backdrop-filter: blur(10px);
         min-width: 320px;
-        animation: slideIn 0.3s ease-out;
+        animation: slideInFromLeft 0.3s ease-out;
       ">
         <div style="display: flex; align-items: center; margin-bottom: 8px;">
-          <span style="font-size: 20px; margin-right: 10px;">SHIELD</span>
+          <span style="font-size: 20px; margin-right: 10px;"></span>
           <strong>Kavach Privacy Reset Complete</strong>
         </div>
         <div style="font-size: 13px; opacity: 0.9; line-height: 1.4;">
@@ -930,8 +930,8 @@ function comprehensiveOptOutCleanup(domain: string) {
         </div>
       </div>
       <style>
-        @keyframes slideIn {
-          from { transform: translateX(100%); opacity: 0; }
+        @keyframes slideInFromLeft {
+          from { transform: translateX(-100%); opacity: 0; }
           to { transform: translateX(0); opacity: 1; }
         }
       </style>
@@ -946,7 +946,7 @@ function comprehensiveOptOutCleanup(domain: string) {
     // Auto-remove notification
     setTimeout(() => {
       if (notification.parentNode) {
-        notification.style.animation = 'slideIn 0.3s ease-out reverse';
+        notification.style.animation = 'slideInFromLeft 0.3s ease-out reverse';
         setTimeout(() => notification.remove(), 300);
       }
     }, 10000);
