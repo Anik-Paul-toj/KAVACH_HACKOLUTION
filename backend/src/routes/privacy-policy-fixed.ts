@@ -65,9 +65,9 @@ router.post('/analyze', async (req: Request, res: Response): Promise<void> => {
     // If no specific policy URL provided, try to find it
     if (!finalPolicyUrl) {
       console.log(`🔍 Searching for privacy policy on ${url}`);
-      const foundPolicyUrl = await PolicyScraper.findPrivacyPolicyUrl(url);
+      const foundPolicyResult = await PolicyScraper.findPrivacyPolicyUrl(url);
       
-      if (!foundPolicyUrl) {
+      if (!foundPolicyResult.privacyPolicyUrl) {
         res.status(404).json({
           success: false,
           error: 'No privacy policy found on this website'
@@ -75,7 +75,7 @@ router.post('/analyze', async (req: Request, res: Response): Promise<void> => {
         return;
       }
       
-      finalPolicyUrl = foundPolicyUrl;
+      finalPolicyUrl = foundPolicyResult.privacyPolicyUrl;
     }
 
     console.log(`📄 Scraping privacy policy from ${finalPolicyUrl}`);
@@ -168,9 +168,9 @@ router.get('/find', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const policyUrl = await PolicyScraper.findPrivacyPolicyUrl(url);
+    const policyResult = await PolicyScraper.findPrivacyPolicyUrl(url);
 
-    if (!policyUrl) {
+    if (!policyResult.privacyPolicyUrl) {
       res.status(404).json({
         success: false,
         error: 'No privacy policy found on this website'
@@ -181,8 +181,11 @@ router.get('/find', async (req: Request, res: Response): Promise<void> => {
     res.json({
       success: true,
       data: {
-        policyUrl,
-        foundAt: new Date().toISOString()
+        policyUrl: policyResult.privacyPolicyUrl,
+        foundAt: new Date().toISOString(),
+        method: policyResult.method,
+        crawledPages: policyResult.crawledPages,
+        foundUrls: policyResult.foundUrls.length
       }
     });
 
