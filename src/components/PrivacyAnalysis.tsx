@@ -108,7 +108,7 @@ const PrivacyAnalysis: React.FC<PrivacyAnalysisProps> = ({ analysis }) => {
               right: 0,
               bottom: 0,
               background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
-              animation: 'scoreShimmer 2s ease-in-out infinite'
+              
             }} />
           </div>
         </div>
